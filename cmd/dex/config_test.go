@@ -3,15 +3,15 @@ package main
 import (
 	"os"
 	"testing"
-
+	
 	"github.com/ghodss/yaml"
 	"github.com/kylelemons/godebug/pretty"
-
-	"github.com/dexidp/dex/connector/mock"
-	"github.com/dexidp/dex/connector/oidc"
-	"github.com/dexidp/dex/server"
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/sql"
+	
+	"github.com/adminium/dex/connector/mock"
+	"github.com/adminium/dex/connector/oidc"
+	"github.com/adminium/dex/server"
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/sql"
 )
 
 var _ = yaml.YAMLToJSON
@@ -124,7 +124,7 @@ logger:
   level: "debug"
   format: "json"
 `)
-
+	
 	want := Config{
 		Issuer: "http://127.0.0.1:5556/dex",
 		Storage: Storage{
@@ -207,7 +207,7 @@ logger:
 			Format: "json",
 		},
 	}
-
+	
 	var c Config
 	if err := yaml.Unmarshal(rawConfig, &c); err != nil {
 		t.Fatalf("failed to decode config: %v", err)
@@ -256,7 +256,7 @@ func checkUnmarshalConfigWithEnv(t *testing.T, dexExpandEnv string, wantExpandEn
 	} else {
 		os.Unsetenv("DEX_EXPAND_ENV")
 	}
-
+	
 	rawConfig := []byte(`
 issuer: http://127.0.0.1:5556/dex
 storage:
@@ -324,7 +324,7 @@ logger:
   level: "debug"
   format: "json"
 `)
-
+	
 	// This is not a valid hostname. It's only used to check whether os.ExpandEnv was applied or not.
 	wantPostgresHost := "$DEX_FOO_POSTGRES_HOST"
 	wantOidcClientSecret := "$DEX_FOO_OIDC_CLIENT_SECRET"
@@ -332,7 +332,7 @@ logger:
 		wantPostgresHost = "10.0.0.1"
 		wantOidcClientSecret = "bar"
 	}
-
+	
 	want := Config{
 		Issuer: "http://127.0.0.1:5556/dex",
 		Storage: Storage{
@@ -414,7 +414,7 @@ logger:
 			Format: "json",
 		},
 	}
-
+	
 	var c Config
 	if err := yaml.Unmarshal(rawConfig, &c); err != nil {
 		t.Fatalf("failed to decode config: %v", err)

@@ -5,14 +5,14 @@ import (
 	"database/sql"
 	"hash"
 	"time"
-
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/ent/db"
-	"github.com/dexidp/dex/storage/ent/db/authcode"
-	"github.com/dexidp/dex/storage/ent/db/authrequest"
-	"github.com/dexidp/dex/storage/ent/db/devicerequest"
-	"github.com/dexidp/dex/storage/ent/db/devicetoken"
-	"github.com/dexidp/dex/storage/ent/db/migrate"
+	
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/ent/db"
+	"github.com/adminium/dex/storage/ent/db/authcode"
+	"github.com/adminium/dex/storage/ent/db/authrequest"
+	"github.com/adminium/dex/storage/ent/db/devicerequest"
+	"github.com/adminium/dex/storage/ent/db/devicetoken"
+	"github.com/adminium/dex/storage/ent/db/migrate"
 )
 
 var _ storage.Storage = (*Database)(nil)
@@ -20,7 +20,7 @@ var _ storage.Storage = (*Database)(nil)
 type Database struct {
 	client    *db.Client
 	txOptions *sql.TxOptions
-
+	
 	hasher func() hash.Hash
 }
 
@@ -73,7 +73,7 @@ func (d *Database) BeginTx(ctx context.Context) (*db.Tx, error) {
 func (d *Database) GarbageCollect(now time.Time) (storage.GCResult, error) {
 	result := storage.GCResult{}
 	utcNow := now.UTC()
-
+	
 	q, err := d.client.AuthRequest.Delete().
 		Where(authrequest.ExpiryLT(utcNow)).
 		Exec(context.TODO())
@@ -81,7 +81,7 @@ func (d *Database) GarbageCollect(now time.Time) (storage.GCResult, error) {
 		return result, convertDBError("gc auth request: %w", err)
 	}
 	result.AuthRequests = int64(q)
-
+	
 	q, err = d.client.AuthCode.Delete().
 		Where(authcode.ExpiryLT(utcNow)).
 		Exec(context.TODO())
@@ -89,7 +89,7 @@ func (d *Database) GarbageCollect(now time.Time) (storage.GCResult, error) {
 		return result, convertDBError("gc auth code: %w", err)
 	}
 	result.AuthCodes = int64(q)
-
+	
 	q, err = d.client.DeviceRequest.Delete().
 		Where(devicerequest.ExpiryLT(utcNow)).
 		Exec(context.TODO())
@@ -97,7 +97,7 @@ func (d *Database) GarbageCollect(now time.Time) (storage.GCResult, error) {
 		return result, convertDBError("gc device request: %w", err)
 	}
 	result.DeviceRequests = int64(q)
-
+	
 	q, err = d.client.DeviceToken.Delete().
 		Where(devicetoken.ExpiryLT(utcNow)).
 		Exec(context.TODO())
@@ -105,6 +105,6 @@ func (d *Database) GarbageCollect(now time.Time) (storage.GCResult, error) {
 		return result, convertDBError("gc device token: %w", err)
 	}
 	result.DeviceTokens = int64(q)
-
+	
 	return result, err
 }

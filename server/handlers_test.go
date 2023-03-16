@@ -13,23 +13,23 @@ import (
 	"strings"
 	"testing"
 	"time"
-
+	
 	gosundheit "github.com/AppsFlyer/go-sundheit"
 	"github.com/AppsFlyer/go-sundheit/checks"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
-
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/storage"
 )
 
 func TestHandleHealth(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
+	
 	httpServer, server := newTestServer(ctx, t, nil)
 	defer httpServer.Close()
-
+	
 	rr := httptest.NewRecorder()
 	server.ServeHTTP(rr, httptest.NewRequest("GET", "/healthz", nil))
 	if rr.Code != http.StatusOK {
@@ -40,10 +40,10 @@ func TestHandleHealth(t *testing.T) {
 func TestHandleHealthFailure(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
+	
 	httpServer, server := newTestServer(ctx, t, func(c *Config) {
 		c.HealthChecker = gosundheit.New()
-
+		
 		c.HealthChecker.RegisterCheck(
 			&checks.CustomCheck{
 				CheckName: "fail",
@@ -56,7 +56,7 @@ func TestHandleHealthFailure(t *testing.T) {
 		)
 	})
 	defer httpServer.Close()
-
+	
 	rr := httptest.NewRecorder()
 	server.ServeHTTP(rr, httptest.NewRequest("GET", "/healthz", nil))
 	if rr.Code != http.StatusInternalServerError {
@@ -75,12 +75,12 @@ func (*emptyStorage) GetAuthRequest(string) (storage.AuthRequest, error) {
 func TestHandleInvalidOAuth2Callbacks(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
+	
 	httpServer, server := newTestServer(ctx, t, func(c *Config) {
 		c.Storage = &emptyStorage{c.Storage}
 	})
 	defer httpServer.Close()
-
+	
 	tests := []struct {
 		TargetURI    string
 		ExpectedCode int
@@ -89,9 +89,9 @@ func TestHandleInvalidOAuth2Callbacks(t *testing.T) {
 		{"/callback?code=&state=", http.StatusBadRequest},
 		{"/callback?code=AAAAAAA&state=BBBBBBB", http.StatusBadRequest},
 	}
-
+	
 	rr := httptest.NewRecorder()
-
+	
 	for i, r := range tests {
 		server.ServeHTTP(rr, httptest.NewRequest("GET", r.TargetURI, nil))
 		if rr.Code != r.ExpectedCode {
@@ -103,12 +103,12 @@ func TestHandleInvalidOAuth2Callbacks(t *testing.T) {
 func TestHandleInvalidSAMLCallbacks(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
+	
 	httpServer, server := newTestServer(ctx, t, func(c *Config) {
 		c.Storage = &emptyStorage{c.Storage}
 	})
 	defer httpServer.Close()
-
+	
 	type requestForm struct {
 		RelayState string
 	}
@@ -119,9 +119,9 @@ func TestHandleInvalidSAMLCallbacks(t *testing.T) {
 		{requestForm{}, http.StatusBadRequest},
 		{requestForm{RelayState: "AAAAAAA"}, http.StatusBadRequest},
 	}
-
+	
 	rr := httptest.NewRecorder()
-
+	
 	for i, r := range tests {
 		jsonValue, err := json.Marshal(r.RequestForm)
 		if err != nil {
@@ -145,17 +145,17 @@ func TestHandleAuthCode(t *testing.T) {
 			handleCode: func(t *testing.T, ctx context.Context, oauth2Config *oauth2.Config, code string) {
 				_, err := oauth2Config.Exchange(ctx, code)
 				require.NoError(t, err)
-
+				
 				_, err = oauth2Config.Exchange(ctx, code)
 				require.Error(t, err)
-
+				
 				oauth2Err, ok := err.(*oauth2.RetrieveError)
 				require.True(t, ok)
-
+				
 				var errResponse struct{ Error string }
 				err = json.Unmarshal(oauth2Err.Body, &errResponse)
 				require.NoError(t, err)
-
+				
 				// invalid_grant must be returned for invalid values
 				// https://tools.ietf.org/html/rfc6749#section-5.2
 				require.Equal(t, errInvalidGrant, errResponse.Error)
@@ -166,47 +166,47 @@ func TestHandleAuthCode(t *testing.T) {
 			handleCode: func(t *testing.T, ctx context.Context, oauth2Config *oauth2.Config, _ string) {
 				_, err := oauth2Config.Exchange(ctx, "")
 				require.Error(t, err)
-
+				
 				oauth2Err, ok := err.(*oauth2.RetrieveError)
 				require.True(t, ok)
-
+				
 				var errResponse struct{ Error string }
 				err = json.Unmarshal(oauth2Err.Body, &errResponse)
 				require.NoError(t, err)
-
+				
 				require.Equal(t, errInvalidRequest, errResponse.Error)
 			},
 		},
 	}
-
+	
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-
+			
 			httpServer, s := newTestServer(ctx, t, func(c *Config) { c.Issuer += "/non-root-path" })
 			defer httpServer.Close()
-
+			
 			p, err := oidc.NewProvider(ctx, httpServer.URL)
 			require.NoError(t, err)
-
+			
 			var oauth2Client oauth2Client
 			oauth2Client.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path != "/callback" {
 					http.Redirect(w, r, oauth2Client.config.AuthCodeURL(""), http.StatusSeeOther)
 					return
 				}
-
+				
 				q := r.URL.Query()
 				require.Equal(t, q.Get("error"), "", q.Get("error_description"))
-
+				
 				code := q.Get("code")
 				tc.handleCode(t, ctx, oauth2Client.config, code)
-
+				
 				w.WriteHeader(http.StatusOK)
 			}))
 			defer oauth2Client.server.Close()
-
+			
 			redirectURL := oauth2Client.server.URL + "/callback"
 			client := storage.Client{
 				ID:           "testclient",
@@ -215,7 +215,7 @@ func TestHandleAuthCode(t *testing.T) {
 			}
 			err = s.storage.CreateClient(client)
 			require.NoError(t, err)
-
+			
 			oauth2Client.config = &oauth2.Config{
 				ClientID:     client.ID,
 				ClientSecret: client.Secret,
@@ -223,10 +223,10 @@ func TestHandleAuthCode(t *testing.T) {
 				Scopes:       []string{oidc.ScopeOpenID, "email", "offline_access"},
 				RedirectURL:  redirectURL,
 			}
-
+			
 			resp, err := http.Get(oauth2Client.server.URL + "/login")
 			require.NoError(t, err)
-
+			
 			resp.Body.Close()
 		})
 	}
@@ -240,10 +240,10 @@ func mockConnectorDataTestStorage(t *testing.T, s storage.Storage) {
 		Name:         "dex client",
 		LogoURL:      "https://goo.gl/JIyzIC",
 	}
-
+	
 	err := s.CreateClient(c)
 	require.NoError(t, err)
-
+	
 	c1 := storage.Connector{
 		ID:   "test",
 		Type: "mockPassword",
@@ -253,73 +253,73 @@ func mockConnectorDataTestStorage(t *testing.T, s storage.Storage) {
 "password": "test"
 }`),
 	}
-
+	
 	err = s.CreateConnector(c1)
 	require.NoError(t, err)
-
+	
 	c2 := storage.Connector{
 		ID:   "http://any.valid.url/",
 		Type: "mock",
 		Name: "mockURLID",
 	}
-
+	
 	err = s.CreateConnector(c2)
 	require.NoError(t, err)
 }
 
 func TestHandlePassword(t *testing.T) {
 	t0 := time.Now()
-
+	
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
+	
 	// Setup a dex server.
 	httpServer, s := newTestServer(ctx, t, func(c *Config) {
 		c.PasswordConnector = "test"
 		c.Now = func() time.Time { return t0 }
 	})
 	defer httpServer.Close()
-
+	
 	mockConnectorDataTestStorage(t, s.storage)
-
+	
 	makeReq := func(username, password string) *httptest.ResponseRecorder {
 		u, err := url.Parse(s.issuerURL.String())
 		require.NoError(t, err)
-
+		
 		u.Path = path.Join(u.Path, "/token")
 		v := url.Values{}
 		v.Add("scope", "openid offline_access email")
 		v.Add("grant_type", "password")
 		v.Add("username", username)
 		v.Add("password", password)
-
+		
 		req, _ := http.NewRequest("POST", u.String(), bytes.NewBufferString(v.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
 		req.SetBasicAuth("test", "barfoo")
-
+		
 		rr := httptest.NewRecorder()
 		s.ServeHTTP(rr, req)
-
+		
 		return rr
 	}
-
+	
 	// Check unauthorized error
 	{
 		rr := makeReq("test", "invalid")
 		require.Equal(t, 401, rr.Code)
 	}
-
+	
 	// Check that we received expected refresh token
 	{
 		rr := makeReq("test", "test")
 		require.Equal(t, 200, rr.Code)
-
+		
 		var ref struct {
 			Token string `json:"refresh_token"`
 		}
 		err := json.Unmarshal(rr.Body.Bytes(), &ref)
 		require.NoError(t, err)
-
+		
 		newSess, err := s.storage.GetOfflineSessions("0-385-28089-0", "test")
 		require.NoError(t, err)
 		require.Equal(t, `{"test": "true"}`, string(newSess.ConnectorData))
@@ -329,12 +329,12 @@ func TestHandlePassword(t *testing.T) {
 func TestHandlePasswordLoginWithSkipApproval(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
+	
 	connID := "mockPw"
 	authReqID := "test"
 	expiry := time.Now().Add(100 * time.Second)
 	resTypes := []string{"code"}
-
+	
 	tests := []struct {
 		name         string
 		skipApproval bool
@@ -377,14 +377,14 @@ func TestHandlePasswordLoginWithSkipApproval(t *testing.T) {
 			},
 		},
 	}
-
+	
 	for _, tc := range tests {
 		httpServer, s := newTestServer(ctx, t, func(c *Config) {
 			c.SkipApprovalScreen = tc.skipApproval
 			c.Now = time.Now
 		})
 		defer httpServer.Close()
-
+		
 		sc := storage.Connector{
 			ID:              connID,
 			Type:            "mockPassword",
@@ -401,23 +401,23 @@ func TestHandlePasswordLoginWithSkipApproval(t *testing.T) {
 		if err := s.storage.CreateAuthRequest(tc.authReq); err != nil {
 			t.Fatalf("failed to create AuthRequest: %v", err)
 		}
-
+		
 		rr := httptest.NewRecorder()
-
+		
 		path := fmt.Sprintf("/auth/%s/login?state=%s&back=&login=foo&password=password", connID, authReqID)
 		s.handlePasswordLogin(rr, httptest.NewRequest("POST", path, nil))
-
+		
 		require.Equal(t, 303, rr.Code)
-
+		
 		resp := rr.Result()
 		cbPath := strings.Split(resp.Header.Get("Location"), "?")[0]
-
+		
 		if tc.skipApproval || !tc.authReq.ForceApprovalPrompt {
 			require.Equal(t, "/auth/mockPw/cb", cbPath)
 		} else {
 			require.Equal(t, "/approval", cbPath)
 		}
-
+		
 		resp.Body.Close()
 	}
 }
@@ -425,12 +425,12 @@ func TestHandlePasswordLoginWithSkipApproval(t *testing.T) {
 func TestHandleConnectorCallbackWithSkipApproval(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
+	
 	connID := "mock"
 	authReqID := "test"
 	expiry := time.Now().Add(100 * time.Second)
 	resTypes := []string{"code"}
-
+	
 	tests := []struct {
 		name         string
 		skipApproval bool
@@ -473,33 +473,33 @@ func TestHandleConnectorCallbackWithSkipApproval(t *testing.T) {
 			},
 		},
 	}
-
+	
 	for _, tc := range tests {
 		httpServer, s := newTestServer(ctx, t, func(c *Config) {
 			c.SkipApprovalScreen = tc.skipApproval
 			c.Now = time.Now
 		})
 		defer httpServer.Close()
-
+		
 		if err := s.storage.CreateAuthRequest(tc.authReq); err != nil {
 			t.Fatalf("failed to create AuthRequest: %v", err)
 		}
 		rr := httptest.NewRecorder()
-
+		
 		path := fmt.Sprintf("/callback/%s?state=%s", connID, authReqID)
 		s.handleConnectorCallback(rr, httptest.NewRequest("GET", path, nil))
-
+		
 		require.Equal(t, 303, rr.Code)
-
+		
 		resp := rr.Result()
 		cbPath := strings.Split(resp.Header.Get("Location"), "?")[0]
-
+		
 		if tc.skipApproval || !tc.authReq.ForceApprovalPrompt {
 			require.Equal(t, "/callback/cb", cbPath)
 		} else {
 			require.Equal(t, "/approval", cbPath)
 		}
-
+		
 		resp.Body.Close()
 	}
 }

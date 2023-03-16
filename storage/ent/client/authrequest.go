@@ -3,8 +3,8 @@ package client
 import (
 	"context"
 	"fmt"
-
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/storage"
 )
 
 // CreateAuthRequest saves provided auth request into the database.
@@ -63,17 +63,17 @@ func (d *Database) UpdateAuthRequest(id string, updater func(old storage.AuthReq
 	if err != nil {
 		return fmt.Errorf("update auth request tx: %w", err)
 	}
-
+	
 	authRequest, err := tx.AuthRequest.Get(context.TODO(), id)
 	if err != nil {
 		return rollback(tx, "update auth request database: %w", err)
 	}
-
+	
 	newAuthRequest, err := updater(toStorageAuthRequest(authRequest))
 	if err != nil {
 		return rollback(tx, "update auth request updating: %w", err)
 	}
-
+	
 	_, err = tx.AuthRequest.UpdateOneID(newAuthRequest.ID).
 		SetClientID(newAuthRequest.ClientID).
 		SetScopes(newAuthRequest.Scopes).
@@ -100,10 +100,10 @@ func (d *Database) UpdateAuthRequest(id string, updater func(old storage.AuthReq
 	if err != nil {
 		return rollback(tx, "update auth request uploading: %w", err)
 	}
-
+	
 	if err = tx.Commit(); err != nil {
 		return rollback(tx, "update auth request commit: %w", err)
 	}
-
+	
 	return nil
 }

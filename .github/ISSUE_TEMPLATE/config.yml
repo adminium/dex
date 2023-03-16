@@ -1,7 +1,7 @@
 blank_issues_enabled: false
 contact_links:
   - name: ❓ Ask a question
-    url: https://github.com/dexidp/dex/discussions/new?category=q-a
+    url: https://github.com/adminium/dex/discussions/new?category=q-a
     about: Ask and discuss questions with other Dex community members
 
   - name: 📚 Documentation
@@ -13,5 +13,5 @@ contact_links:
     about: Please ask and answer questions here
 
   - name: 💡 Dex Enhancement Proposal
-    url: https://github.com/dexidp/dex/tree/master/enhancements/README.md
+    url: https://github.com/adminium/dex/tree/master/enhancements/README.md
     about: Open a proposal for significant architectural change

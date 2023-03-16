@@ -10,13 +10,13 @@ import (
 	"net/http"
 	"sync"
 	"time"
-
+	
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/bitbucket"
-
-	"github.com/dexidp/dex/connector"
-	"github.com/dexidp/dex/pkg/groups"
-	"github.com/dexidp/dex/pkg/log"
+	
+	"github.com/adminium/dex/connector"
+	"github.com/adminium/dex/pkg/groups"
+	"github.com/adminium/dex/pkg/log"
 )
 
 const (
@@ -53,7 +53,7 @@ func (c *Config) Open(_ string, logger log.Logger) (connector.Connector, error) 
 		legacyAPIURL:      legacyAPIURL,
 		logger:            logger,
 	}
-
+	
 	return &b, nil
 }
 
@@ -76,11 +76,11 @@ type bitbucketConnector struct {
 	logger       log.Logger
 	apiURL       string
 	legacyAPIURL string
-
+	
 	// the following are used only for tests
 	hostName   string
 	httpClient *http.Client
-
+	
 	includeTeamGroups bool
 }
 
@@ -94,7 +94,7 @@ func (b *bitbucketConnector) oauth2Config(scopes connector.Scopes) *oauth2.Confi
 	if b.groupsRequired(scopes.Groups) {
 		bitbucketScopes = append(bitbucketScopes, scopeTeams)
 	}
-
+	
 	endpoint := bitbucket.Endpoint
 	if b.hostName != "" {
 		endpoint = oauth2.Endpoint{
@@ -102,7 +102,7 @@ func (b *bitbucketConnector) oauth2Config(scopes connector.Scopes) *oauth2.Confi
 			TokenURL: "https://" + b.hostName + "/site/oauth2/access_token",
 		}
 	}
-
+	
 	return &oauth2.Config{
 		ClientID:     b.clientID,
 		ClientSecret: b.clientSecret,
@@ -115,7 +115,7 @@ func (b *bitbucketConnector) LoginURL(scopes connector.Scopes, callbackURL, stat
 	if b.redirectURI != callbackURL {
 		return "", fmt.Errorf("expected callback URL %q did not match the URL in the config %q", callbackURL, b.redirectURI)
 	}
-
+	
 	return b.oauth2Config(scopes).AuthCodeURL(state), nil
 }
 
@@ -136,33 +136,33 @@ func (b *bitbucketConnector) HandleCallback(s connector.Scopes, r *http.Request)
 	if errType := q.Get("error"); errType != "" {
 		return identity, &oauth2Error{errType, q.Get("error_description")}
 	}
-
+	
 	oauth2Config := b.oauth2Config(s)
-
+	
 	ctx := r.Context()
 	if b.httpClient != nil {
 		ctx = context.WithValue(r.Context(), oauth2.HTTPClient, b.httpClient)
 	}
-
+	
 	token, err := oauth2Config.Exchange(ctx, q.Get("code"))
 	if err != nil {
 		return identity, fmt.Errorf("bitbucket: failed to get token: %v", err)
 	}
-
+	
 	client := oauth2Config.Client(ctx, token)
-
+	
 	user, err := b.user(ctx, client)
 	if err != nil {
 		return identity, fmt.Errorf("bitbucket: get user: %v", err)
 	}
-
+	
 	identity = connector.Identity{
 		UserID:        user.UUID,
 		Username:      user.Username,
 		Email:         user.Email,
 		EmailVerified: true,
 	}
-
+	
 	if b.groupsRequired(s.Groups) {
 		groups, err := b.getGroups(ctx, client, s.Groups, user.Username)
 		if err != nil {
@@ -170,7 +170,7 @@ func (b *bitbucketConnector) HandleCallback(s connector.Scopes, r *http.Request)
 		}
 		identity.Groups = groups
 	}
-
+	
 	if s.OfflineAccess {
 		data := connectorData{
 			AccessToken:  token.AccessToken,
@@ -183,7 +183,7 @@ func (b *bitbucketConnector) HandleCallback(s connector.Scopes, r *http.Request)
 		}
 		identity.ConnectorData = connData
 	}
-
+	
 	return identity, nil
 }
 
@@ -220,18 +220,18 @@ func (b *bitbucketConnector) Refresh(ctx context.Context, s connector.Scopes, id
 	if len(identity.ConnectorData) == 0 {
 		return identity, errors.New("bitbucket: no upstream access token found")
 	}
-
+	
 	var data connectorData
 	if err := json.Unmarshal(identity.ConnectorData, &data); err != nil {
 		return identity, fmt.Errorf("bitbucket: unmarshal access token: %v", err)
 	}
-
+	
 	tok := &oauth2.Token{
 		AccessToken:  data.AccessToken,
 		RefreshToken: data.RefreshToken,
 		Expiry:       data.Expiry,
 	}
-
+	
 	client := oauth2.NewClient(ctx, &notifyRefreshTokenSource{
 		new: b.oauth2Config(s).TokenSource(ctx, tok),
 		t:   tok,
@@ -249,15 +249,15 @@ func (b *bitbucketConnector) Refresh(ctx context.Context, s connector.Scopes, id
 			return nil
 		},
 	})
-
+	
 	user, err := b.user(ctx, client)
 	if err != nil {
 		return identity, fmt.Errorf("bitbucket: get user: %v", err)
 	}
-
+	
 	identity.Username = user.Username
 	identity.Email = user.Email
-
+	
 	if b.groupsRequired(s.Groups) {
 		groups, err := b.getGroups(ctx, client, s.Groups, user.Username)
 		if err != nil {
@@ -265,7 +265,7 @@ func (b *bitbucketConnector) Refresh(ctx context.Context, s connector.Scopes, id
 		}
 		identity.Groups = groups
 	}
-
+	
 	return identity, nil
 }
 
@@ -296,15 +296,15 @@ func (b *bitbucketConnector) user(ctx context.Context, client *http.Client) (use
 		u   user
 		err error
 	)
-
+	
 	if err = get(ctx, client, b.apiURL+"/user", &u); err != nil {
 		return user{}, err
 	}
-
+	
 	if u.Email, err = b.userEmail(ctx, client); err != nil {
 		return user{}, err
 	}
-
+	
 	return u, nil
 }
 
@@ -330,22 +330,22 @@ func (b *bitbucketConnector) userEmail(ctx context.Context, client *http.Client)
 	for {
 		// https://developer.atlassian.com/bitbucket/api/2/reference/resource/user/emails
 		var response userEmailResponse
-
+		
 		if err := get(ctx, client, apiURL, &response); err != nil {
 			return "", err
 		}
-
+		
 		for _, email := range response.Values {
 			if email.IsConfirmed && email.IsPrimary {
 				return email.Email, nil
 			}
 		}
-
+		
 		if response.Next == nil {
 			break
 		}
 	}
-
+	
 	return "", errors.New("bitbucket: user has no confirmed, primary email")
 }
 
@@ -355,7 +355,7 @@ func (b *bitbucketConnector) getGroups(ctx context.Context, client *http.Client,
 	if err != nil {
 		return nil, err
 	}
-
+	
 	if len(b.teams) > 0 {
 		filteredTeams := groups.Filter(bitbucketTeams, b.teams)
 		if len(filteredTeams) == 0 {
@@ -365,7 +365,7 @@ func (b *bitbucketConnector) getGroups(ctx context.Context, client *http.Client,
 	} else if groupScope {
 		return bitbucketTeams, nil
 	}
-
+	
 	return nil, nil
 }
 
@@ -385,24 +385,24 @@ type userWorkspacesResponse struct {
 func (b *bitbucketConnector) userWorkspaces(ctx context.Context, client *http.Client) ([]string, error) {
 	var teams []string
 	apiURL := b.apiURL + "/user/permissions/workspaces"
-
+	
 	for {
 		// https://developer.atlassian.com/cloud/bitbucket/rest/api-group-workspaces/#api-workspaces-get
 		var response userWorkspacesResponse
-
+		
 		if err := get(ctx, client, apiURL, &response); err != nil {
 			return nil, fmt.Errorf("bitbucket: get user teams: %v", err)
 		}
-
+		
 		for _, value := range response.Values {
 			teams = append(teams, value.Workspace.Slug)
 		}
-
+		
 		if response.Next == nil {
 			break
 		}
 	}
-
+	
 	if b.includeTeamGroups {
 		for _, team := range teams {
 			teamGroups, err := b.userTeamGroups(ctx, client, team)
@@ -412,7 +412,7 @@ func (b *bitbucketConnector) userWorkspaces(ctx context.Context, client *http.Cl
 			teams = append(teams, teamGroups...)
 		}
 	}
-
+	
 	return teams, nil
 }
 
@@ -422,17 +422,17 @@ type group struct {
 
 func (b *bitbucketConnector) userTeamGroups(ctx context.Context, client *http.Client, teamName string) ([]string, error) {
 	apiURL := b.legacyAPIURL + "/groups/" + teamName
-
+	
 	var response []group
 	if err := get(ctx, client, apiURL, &response); err != nil {
 		return nil, fmt.Errorf("get user team %q groups: %v", teamName, err)
 	}
-
+	
 	teamGroups := make([]string, 0, len(response))
 	for _, group := range response {
 		teamGroups = append(teamGroups, teamName+"/"+group.Slug)
 	}
-
+	
 	return teamGroups, nil
 }
 
@@ -451,7 +451,7 @@ func get(ctx context.Context, client *http.Client, apiURL string, v interface{})
 		return fmt.Errorf("bitbucket: get URL %v", err)
 	}
 	defer resp.Body.Close()
-
+	
 	if resp.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -459,10 +459,10 @@ func get(ctx context.Context, client *http.Client, apiURL string, v interface{})
 		}
 		return fmt.Errorf("%s: %s", resp.Status, body)
 	}
-
+	
 	if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
 		return fmt.Errorf("bitbucket: failed to decode response: %v", err)
 	}
-
+	
 	return nil
 }

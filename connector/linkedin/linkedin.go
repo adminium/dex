@@ -8,11 +8,11 @@ import (
 	"io"
 	"net/http"
 	"strings"
-
+	
 	"golang.org/x/oauth2"
-
-	"github.com/dexidp/dex/connector"
-	"github.com/dexidp/dex/pkg/log"
+	
+	"github.com/adminium/dex/connector"
+	"github.com/adminium/dex/pkg/log"
 )
 
 const (
@@ -67,7 +67,7 @@ func (c *linkedInConnector) LoginURL(scopes connector.Scopes, callbackURL, state
 		return "", fmt.Errorf("expected callback URL %q did not match the URL in the config %q",
 			callbackURL, c.oauth2Config.RedirectURL)
 	}
-
+	
 	return c.oauth2Config.AuthCodeURL(state), nil
 }
 
@@ -77,26 +77,26 @@ func (c *linkedInConnector) HandleCallback(s connector.Scopes, r *http.Request) 
 	if errType := q.Get("error"); errType != "" {
 		return identity, &oauth2Error{errType, q.Get("error_description")}
 	}
-
+	
 	ctx := r.Context()
 	token, err := c.oauth2Config.Exchange(ctx, q.Get("code"))
 	if err != nil {
 		return identity, fmt.Errorf("linkedin: get token: %v", err)
 	}
-
+	
 	client := c.oauth2Config.Client(ctx, token)
 	profile, err := c.profile(ctx, client)
 	if err != nil {
 		return identity, fmt.Errorf("linkedin: get profile: %v", err)
 	}
-
+	
 	identity = connector.Identity{
 		UserID:        profile.ID,
 		Username:      profile.fullname(),
 		Email:         profile.Email,
 		EmailVerified: true,
 	}
-
+	
 	if s.OfflineAccess {
 		data := connectorData{AccessToken: token.AccessToken}
 		connData, err := json.Marshal(data)
@@ -105,7 +105,7 @@ func (c *linkedInConnector) HandleCallback(s connector.Scopes, r *http.Request) 
 		}
 		identity.ConnectorData = connData
 	}
-
+	
 	return identity, nil
 }
 
@@ -113,21 +113,21 @@ func (c *linkedInConnector) Refresh(ctx context.Context, s connector.Scopes, ide
 	if len(ident.ConnectorData) == 0 {
 		return ident, fmt.Errorf("linkedin: no upstream access token found")
 	}
-
+	
 	var data connectorData
 	if err := json.Unmarshal(ident.ConnectorData, &data); err != nil {
 		return ident, fmt.Errorf("linkedin: unmarshal access token: %v", err)
 	}
-
+	
 	client := c.oauth2Config.Client(ctx, &oauth2.Token{AccessToken: data.AccessToken})
 	profile, err := c.profile(ctx, client)
 	if err != nil {
 		return ident, fmt.Errorf("linkedin: get profile: %v", err)
 	}
-
+	
 	ident.Username = profile.fullname()
 	ident.Email = profile.Email
-
+	
 	return ident, nil
 }
 
@@ -153,7 +153,7 @@ func (p profile) fullname() string {
 	if fname == "" {
 		return p.Email
 	}
-
+	
 	return fname
 }
 
@@ -162,22 +162,22 @@ func (c *linkedInConnector) primaryEmail(ctx context.Context, client *http.Clien
 	if err != nil {
 		return email, fmt.Errorf("new req: %v", err)
 	}
-
+	
 	resp, err := client.Do(req.WithContext(ctx))
 	if err != nil {
 		return email, fmt.Errorf("get URL %v", err)
 	}
 	defer resp.Body.Close()
-
+	
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return email, fmt.Errorf("read body: %v", err)
 	}
-
+	
 	if resp.StatusCode != http.StatusOK {
 		return email, fmt.Errorf("%s: %s", resp.Status, body)
 	}
-
+	
 	var parsedResp emailresp
 	err = json.Unmarshal(body, &parsedResp)
 	if err == nil {
@@ -185,11 +185,11 @@ func (c *linkedInConnector) primaryEmail(ctx context.Context, client *http.Clien
 			email = elem.Handle.EmailAddress
 		}
 	}
-
+	
 	if email == "" {
 		err = fmt.Errorf("email is not set")
 	}
-
+	
 	return email, err
 }
 
@@ -201,13 +201,13 @@ func (c *linkedInConnector) profile(ctx context.Context, client *http.Client) (p
 	if err != nil {
 		return p, fmt.Errorf("new req: %v", err)
 	}
-
+	
 	resp, err := client.Do(req.WithContext(ctx))
 	if err != nil {
 		return p, fmt.Errorf("get URL %v", err)
 	}
 	defer resp.Body.Close()
-
+	
 	if resp.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -215,17 +215,17 @@ func (c *linkedInConnector) profile(ctx context.Context, client *http.Client) (p
 		}
 		return p, fmt.Errorf("%s: %s", resp.Status, body)
 	}
-
+	
 	if err := json.NewDecoder(resp.Body).Decode(&p); err != nil {
 		return p, fmt.Errorf("JSON decode: %v", err)
 	}
-
+	
 	email, err := c.primaryEmail(ctx, client)
 	if err != nil {
 		return p, fmt.Errorf("fetching email: %v", err)
 	}
 	p.Email = email
-
+	
 	return p, err
 }
 

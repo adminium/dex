@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
+	
 	"golang.org/x/crypto/bcrypt"
-
-	"github.com/dexidp/dex/api/v2"
-	"github.com/dexidp/dex/pkg/log"
-	"github.com/dexidp/dex/server/internal"
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/api/v2"
+	"github.com/adminium/dex/pkg/log"
+	"github.com/adminium/dex/server/internal"
+	"github.com/adminium/dex/storage"
 )
 
 // apiVersion increases every time a new call is added to the API. Clients should use this info
@@ -21,7 +21,7 @@ const (
 	// recCost is the recommended bcrypt cost, which balances hash strength and
 	// efficiency.
 	recCost = 12
-
+	
 	// upBoundCost is a sane upper bound on bcrypt cost determined by benchmarking:
 	// high enough to ensure secure encryption, low enough to not put unnecessary
 	// load on a dex server.
@@ -39,7 +39,7 @@ func NewAPI(s storage.Storage, logger log.Logger, version string) api.DexServer 
 
 type dexAPI struct {
 	api.UnimplementedDexServer
-
+	
 	s       storage.Storage
 	logger  log.Logger
 	version string
@@ -49,14 +49,14 @@ func (d dexAPI) CreateClient(ctx context.Context, req *api.CreateClientReq) (*ap
 	if req.Client == nil {
 		return nil, errors.New("no client supplied")
 	}
-
+	
 	if req.Client.Id == "" {
 		req.Client.Id = storage.NewID()
 	}
 	if req.Client.Secret == "" && !req.Client.Public {
 		req.Client.Secret = storage.NewID() + storage.NewID()
 	}
-
+	
 	c := storage.Client{
 		ID:           req.Client.Id,
 		Secret:       req.Client.Secret,
@@ -73,7 +73,7 @@ func (d dexAPI) CreateClient(ctx context.Context, req *api.CreateClientReq) (*ap
 		d.logger.Errorf("api: failed to create client: %v", err)
 		return nil, fmt.Errorf("create client: %v", err)
 	}
-
+	
 	return &api.CreateClientResp{
 		Client: req.Client,
 	}, nil
@@ -83,7 +83,7 @@ func (d dexAPI) UpdateClient(ctx context.Context, req *api.UpdateClientReq) (*ap
 	if req.Id == "" {
 		return nil, errors.New("update client: no client ID supplied")
 	}
-
+	
 	err := d.s.UpdateClient(req.Id, func(old storage.Client) (storage.Client, error) {
 		if req.RedirectUris != nil {
 			old.RedirectURIs = req.RedirectUris
@@ -151,7 +151,7 @@ func (d dexAPI) CreatePassword(ctx context.Context, req *api.CreatePasswordReq) 
 	} else {
 		return nil, errors.New("no hash of password supplied")
 	}
-
+	
 	p := storage.Password{
 		Email:    req.Password.Email,
 		Hash:     req.Password.Hash,
@@ -165,7 +165,7 @@ func (d dexAPI) CreatePassword(ctx context.Context, req *api.CreatePasswordReq) 
 		d.logger.Errorf("api: failed to create password: %v", err)
 		return nil, fmt.Errorf("create password: %v", err)
 	}
-
+	
 	return &api.CreatePasswordResp{}, nil
 }
 
@@ -176,25 +176,25 @@ func (d dexAPI) UpdatePassword(ctx context.Context, req *api.UpdatePasswordReq) 
 	if req.NewHash == nil && req.NewUsername == "" {
 		return nil, errors.New("nothing to update")
 	}
-
+	
 	if req.NewHash != nil {
 		if err := checkCost(req.NewHash); err != nil {
 			return nil, err
 		}
 	}
-
+	
 	updater := func(old storage.Password) (storage.Password, error) {
 		if req.NewHash != nil {
 			old.Hash = req.NewHash
 		}
-
+		
 		if req.NewUsername != "" {
 			old.Username = req.NewUsername
 		}
-
+		
 		return old, nil
 	}
-
+	
 	if err := d.s.UpdatePassword(req.Email, updater); err != nil {
 		if err == storage.ErrNotFound {
 			return &api.UpdatePasswordResp{NotFound: true}, nil
@@ -202,7 +202,7 @@ func (d dexAPI) UpdatePassword(ctx context.Context, req *api.UpdatePasswordReq) 
 		d.logger.Errorf("api: failed to update password: %v", err)
 		return nil, fmt.Errorf("update password: %v", err)
 	}
-
+	
 	return &api.UpdatePasswordResp{}, nil
 }
 
@@ -210,7 +210,7 @@ func (d dexAPI) DeletePassword(ctx context.Context, req *api.DeletePasswordReq) 
 	if req.Email == "" {
 		return nil, errors.New("no email supplied")
 	}
-
+	
 	err := d.s.DeletePassword(req.Email)
 	if err != nil {
 		if err == storage.ErrNotFound {
@@ -235,7 +235,7 @@ func (d dexAPI) ListPasswords(ctx context.Context, req *api.ListPasswordReq) (*a
 		d.logger.Errorf("api: failed to list passwords: %v", err)
 		return nil, fmt.Errorf("list passwords: %v", err)
 	}
-
+	
 	passwords := make([]*api.Password, 0, len(passwordList))
 	for _, password := range passwordList {
 		p := api.Password{
@@ -245,7 +245,7 @@ func (d dexAPI) ListPasswords(ctx context.Context, req *api.ListPasswordReq) (*a
 		}
 		passwords = append(passwords, &p)
 	}
-
+	
 	return &api.ListPasswordResp{
 		Passwords: passwords,
 	}, nil
@@ -255,11 +255,11 @@ func (d dexAPI) VerifyPassword(ctx context.Context, req *api.VerifyPasswordReq) 
 	if req.Email == "" {
 		return nil, errors.New("no email supplied")
 	}
-
+	
 	if req.Password == "" {
 		return nil, errors.New("no password to verify supplied")
 	}
-
+	
 	password, err := d.s.GetPassword(req.Email)
 	if err != nil {
 		if err == storage.ErrNotFound {
@@ -270,7 +270,7 @@ func (d dexAPI) VerifyPassword(ctx context.Context, req *api.VerifyPasswordReq) 
 		d.logger.Errorf("api: there was an error retrieving the password: %v", err)
 		return nil, fmt.Errorf("verify password: %v", err)
 	}
-
+	
 	if err := bcrypt.CompareHashAndPassword(password.Hash, []byte(req.Password)); err != nil {
 		d.logger.Infof("api: password check failed: %v", err)
 		return &api.VerifyPasswordResp{
@@ -288,7 +288,7 @@ func (d dexAPI) ListRefresh(ctx context.Context, req *api.ListRefreshReq) (*api.
 		d.logger.Errorf("api: failed to unmarshal ID Token subject: %v", err)
 		return nil, err
 	}
-
+	
 	offlineSessions, err := d.s.GetOfflineSessions(id.UserId, id.ConnId)
 	if err != nil {
 		if err == storage.ErrNotFound {
@@ -299,7 +299,7 @@ func (d dexAPI) ListRefresh(ctx context.Context, req *api.ListRefreshReq) (*api.
 		d.logger.Errorf("api: failed to list refresh tokens %t here : %v", err == storage.ErrNotFound, err)
 		return nil, err
 	}
-
+	
 	refreshTokenRefs := make([]*api.RefreshTokenRef, 0, len(offlineSessions.Refresh))
 	for _, session := range offlineSessions.Refresh {
 		r := api.RefreshTokenRef{
@@ -310,7 +310,7 @@ func (d dexAPI) ListRefresh(ctx context.Context, req *api.ListRefreshReq) (*api.
 		}
 		refreshTokenRefs = append(refreshTokenRefs, &r)
 	}
-
+	
 	return &api.ListRefreshResp{
 		RefreshTokens: refreshTokenRefs,
 	}, nil
@@ -322,7 +322,7 @@ func (d dexAPI) RevokeRefresh(ctx context.Context, req *api.RevokeRefreshReq) (*
 		d.logger.Errorf("api: failed to unmarshal ID Token subject: %v", err)
 		return nil, err
 	}
-
+	
 	var (
 		refreshID string
 		notFound  bool
@@ -334,15 +334,15 @@ func (d dexAPI) RevokeRefresh(ctx context.Context, req *api.RevokeRefreshReq) (*
 			notFound = true
 			return old, storage.ErrNotFound
 		}
-
+		
 		refreshID = refreshRef.ID
-
+		
 		// Remove entry from Refresh list of the OfflineSession object.
 		delete(old.Refresh, req.ClientId)
-
+		
 		return old, nil
 	}
-
+	
 	if err := d.s.UpdateOfflineSessions(id.UserId, id.ConnId, updater); err != nil {
 		if err == storage.ErrNotFound {
 			return &api.RevokeRefreshResp{NotFound: true}, nil
@@ -350,11 +350,11 @@ func (d dexAPI) RevokeRefresh(ctx context.Context, req *api.RevokeRefreshReq) (*
 		d.logger.Errorf("api: failed to update offline session object: %v", err)
 		return nil, err
 	}
-
+	
 	if notFound {
 		return &api.RevokeRefreshResp{NotFound: true}, nil
 	}
-
+	
 	// Delete the refresh token from the storage
 	//
 	// TODO(ericchiang): we don't have any good recourse if this call fails.
@@ -363,6 +363,6 @@ func (d dexAPI) RevokeRefresh(ctx context.Context, req *api.RevokeRefreshReq) (*
 		d.logger.Errorf("failed to delete refresh token: %v", err)
 		return nil, err
 	}
-
+	
 	return &api.RevokeRefreshResp{}, nil
 }

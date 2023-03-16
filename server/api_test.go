@@ -6,16 +6,16 @@ import (
 	"os"
 	"testing"
 	"time"
-
+	
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-
-	"github.com/dexidp/dex/api/v2"
-	"github.com/dexidp/dex/pkg/log"
-	"github.com/dexidp/dex/server/internal"
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/memory"
+	
+	"github.com/adminium/dex/api/v2"
+	"github.com/adminium/dex/pkg/log"
+	"github.com/adminium/dex/server/internal"
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/memory"
 )
 
 // apiClient is a test gRPC client. When constructed, it runs a server in
@@ -35,18 +35,18 @@ func newAPI(s storage.Storage, logger log.Logger, t *testing.T) *apiClient {
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	
 	serv := grpc.NewServer()
 	api.RegisterDexServer(serv, NewAPI(s, logger, "test"))
 	go serv.Serve(l)
-
+	
 	// Dial will retry automatically if the serv.Serve() goroutine
 	// hasn't started yet.
 	conn, err := grpc.Dial(l.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	
 	return &apiClient{
 		DexClient: api.NewDexClient(conn),
 		Close: func() {
@@ -64,11 +64,11 @@ func TestPassword(t *testing.T) {
 		Formatter: &logrus.TextFormatter{DisableColors: true},
 		Level:     logrus.DebugLevel,
 	}
-
+	
 	s := memory.New(logger)
 	client := newAPI(s, logger, t)
 	defer client.Close()
-
+	
 	ctx := context.Background()
 	email := "test@example.com"
 	p := api.Password{
@@ -78,23 +78,23 @@ func TestPassword(t *testing.T) {
 		Username: "test",
 		UserId:   "test123",
 	}
-
+	
 	createReq := api.CreatePasswordReq{
 		Password: &p,
 	}
-
+	
 	if resp, err := client.CreatePassword(ctx, &createReq); err != nil || resp.AlreadyExists {
 		if resp.AlreadyExists {
 			t.Fatalf("Unable to create password since %s already exists", createReq.Password.Email)
 		}
 		t.Fatalf("Unable to create password: %v", err)
 	}
-
+	
 	// Attempt to create a password that already exists.
 	if resp, _ := client.CreatePassword(ctx, &createReq); !resp.AlreadyExists {
 		t.Fatalf("Created password %s twice", createReq.Password.Email)
 	}
-
+	
 	// Attempt to verify valid password and email
 	goodVerifyReq := &api.VerifyPasswordReq{
 		Email:    email,
@@ -110,7 +110,7 @@ func TestPassword(t *testing.T) {
 	if goodVerifyResp.NotFound {
 		t.Fatalf("verify password failed to return not found response. expected %t, found %t", false, goodVerifyResp.NotFound)
 	}
-
+	
 	// Check not found response for valid password with wrong email
 	badEmailVerifyReq := &api.VerifyPasswordReq{
 		Email:    "somewrongaddress@email.com",
@@ -126,7 +126,7 @@ func TestPassword(t *testing.T) {
 	if !badEmailVerifyResp.NotFound {
 		t.Fatalf("expected not found response for verify password with bad email. expected %t, found %t", true, badEmailVerifyResp.NotFound)
 	}
-
+	
 	// Check that wrong password fails
 	badPassVerifyReq := &api.VerifyPasswordReq{
 		Email:    email,
@@ -142,29 +142,29 @@ func TestPassword(t *testing.T) {
 	if badPassVerifyResp.NotFound {
 		t.Fatalf("did not expect expected not found response for verify password with bad email. expected %t, found %t", false, badPassVerifyResp.NotFound)
 	}
-
+	
 	updateReq := api.UpdatePasswordReq{
 		Email:       email,
 		NewUsername: "test1",
 	}
-
+	
 	if _, err := client.UpdatePassword(ctx, &updateReq); err != nil {
 		t.Fatalf("Unable to update password: %v", err)
 	}
-
+	
 	pass, err := s.GetPassword(updateReq.Email)
 	if err != nil {
 		t.Fatalf("Unable to retrieve password: %v", err)
 	}
-
+	
 	if pass.Username != updateReq.NewUsername {
 		t.Fatalf("UpdatePassword failed. Expected username %s retrieved %s", updateReq.NewUsername, pass.Username)
 	}
-
+	
 	deleteReq := api.DeletePasswordReq{
 		Email: "test@example.com",
 	}
-
+	
 	if _, err := client.DeletePassword(ctx, &deleteReq); err != nil {
 		t.Fatalf("Unable to delete password: %v", err)
 	}
@@ -177,15 +177,15 @@ func TestCheckCost(t *testing.T) {
 		Formatter: &logrus.TextFormatter{DisableColors: true},
 		Level:     logrus.DebugLevel,
 	}
-
+	
 	s := memory.New(logger)
 	client := newAPI(s, logger, t)
 	defer client.Close()
-
+	
 	tests := []struct {
 		name      string
 		inputHash []byte
-
+		
 		wantErr bool
 	}{
 		{
@@ -211,7 +211,7 @@ func TestCheckCost(t *testing.T) {
 			wantErr:   true,
 		},
 	}
-
+	
 	for _, tc := range tests {
 		if err := checkCost(tc.inputHash); err != nil {
 			if !tc.wantErr {
@@ -219,7 +219,7 @@ func TestCheckCost(t *testing.T) {
 			}
 			continue
 		}
-
+		
 		if tc.wantErr {
 			t.Errorf("%s: expected err", tc.name)
 			continue
@@ -234,13 +234,13 @@ func TestRefreshToken(t *testing.T) {
 		Formatter: &logrus.TextFormatter{DisableColors: true},
 		Level:     logrus.DebugLevel,
 	}
-
+	
 	s := memory.New(logger)
 	client := newAPI(s, logger, t)
 	defer client.Close()
-
+	
 	ctx := context.Background()
-
+	
 	// Creating a storage with an existing refresh token and offline session for the user.
 	id := storage.NewID()
 	r := storage.RefreshToken{
@@ -261,29 +261,29 @@ func TestRefreshToken(t *testing.T) {
 		},
 		ConnectorData: []byte(`{"some":"data"}`),
 	}
-
+	
 	if err := s.CreateRefresh(r); err != nil {
 		t.Fatalf("create refresh token: %v", err)
 	}
-
+	
 	tokenRef := storage.RefreshTokenRef{
 		ID:        r.ID,
 		ClientID:  r.ClientID,
 		CreatedAt: r.CreatedAt,
 		LastUsed:  r.LastUsed,
 	}
-
+	
 	session := storage.OfflineSessions{
 		UserID:  r.Claims.UserID,
 		ConnID:  r.ConnectorID,
 		Refresh: make(map[string]*storage.RefreshTokenRef),
 	}
 	session.Refresh[tokenRef.ClientID] = &tokenRef
-
+	
 	if err := s.CreateOfflineSessions(session); err != nil {
 		t.Fatalf("create offline session: %v", err)
 	}
-
+	
 	subjectString, err := internal.Marshal(&internal.IDTokenSubject{
 		UserId: r.Claims.UserID,
 		ConnId: r.ConnectorID,
@@ -291,32 +291,32 @@ func TestRefreshToken(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to marshal offline session ID: %v", err)
 	}
-
+	
 	// Testing the api.
 	listReq := api.ListRefreshReq{
 		UserId: subjectString,
 	}
-
+	
 	listResp, err := client.ListRefresh(ctx, &listReq)
 	if err != nil {
 		t.Fatalf("Unable to list refresh tokens for user: %v", err)
 	}
-
+	
 	for _, tok := range listResp.RefreshTokens {
 		if tok.CreatedAt != r.CreatedAt.Unix() {
 			t.Errorf("Expected CreatedAt timestamp %v, got %v", r.CreatedAt.Unix(), tok.CreatedAt)
 		}
-
+		
 		if tok.LastUsed != r.LastUsed.Unix() {
 			t.Errorf("Expected LastUsed timestamp %v, got %v", r.LastUsed.Unix(), tok.LastUsed)
 		}
 	}
-
+	
 	revokeReq := api.RevokeRefreshReq{
 		UserId:   subjectString,
 		ClientId: r.ClientID,
 	}
-
+	
 	resp, err := client.RevokeRefresh(ctx, &revokeReq)
 	if err != nil {
 		t.Fatalf("Unable to revoke refresh tokens for user: %v", err)
@@ -324,10 +324,10 @@ func TestRefreshToken(t *testing.T) {
 	if resp.NotFound {
 		t.Errorf("refresh token session wasn't found")
 	}
-
+	
 	// Try to delete again.
 	//
-	// See https://github.com/dexidp/dex/issues/1055
+	// See https://github.com/adminium/dex/issues/1055
 	resp, err = client.RevokeRefresh(ctx, &revokeReq)
 	if err != nil {
 		t.Fatalf("Unable to revoke refresh tokens for user: %v", err)
@@ -335,7 +335,7 @@ func TestRefreshToken(t *testing.T) {
 	if !resp.NotFound {
 		t.Errorf("refresh token session was found")
 	}
-
+	
 	if resp, _ := client.ListRefresh(ctx, &listReq); len(resp.RefreshTokens) != 0 {
 		t.Fatalf("Refresh token returned inspite of revoking it.")
 	}
@@ -347,12 +347,12 @@ func TestUpdateClient(t *testing.T) {
 		Formatter: &logrus.TextFormatter{DisableColors: true},
 		Level:     logrus.DebugLevel,
 	}
-
+	
 	s := memory.New(logger)
 	client := newAPI(s, logger, t)
 	defer client.Close()
 	ctx := context.Background()
-
+	
 	createClient := func(t *testing.T, clientId string) {
 		resp, err := client.CreateClient(ctx, &api.CreateClientReq{
 			Client: &api.Client{
@@ -368,19 +368,19 @@ func TestUpdateClient(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unable to create the client: %v", err)
 		}
-
+		
 		if resp == nil {
 			t.Fatalf("create client returned no response")
 		}
 		if resp.AlreadyExists {
 			t.Error("existing client was found")
 		}
-
+		
 		if resp.Client == nil {
 			t.Fatalf("no client created")
 		}
 	}
-
+	
 	deleteClient := func(t *testing.T, clientId string) {
 		resp, err := client.DeleteClient(ctx, &api.DeleteClientReq{
 			Id: clientId,
@@ -392,7 +392,7 @@ func TestUpdateClient(t *testing.T) {
 			t.Fatalf("delete client delete client returned no response")
 		}
 	}
-
+	
 	tests := map[string]struct {
 		setup   func(t *testing.T, clientId string)
 		cleanup func(t *testing.T, clientId string)
@@ -444,7 +444,7 @@ func TestUpdateClient(t *testing.T) {
 			},
 		},
 	}
-
+	
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			if tc.setup != nil {
@@ -454,21 +454,21 @@ func TestUpdateClient(t *testing.T) {
 			if err != nil && !tc.wantErr {
 				t.Fatalf("failed to update the client: %v", err)
 			}
-
+			
 			if !tc.wantErr {
 				if resp == nil {
 					t.Fatalf("update client response not found")
 				}
-
+				
 				if tc.want.NotFound != resp.NotFound {
 					t.Errorf("expected in response NotFound: %t", tc.want.NotFound)
 				}
-
+				
 				client, err := s.GetClient(tc.req.Id)
 				if err != nil {
 					t.Errorf("no client found in the storage: %v", err)
 				}
-
+				
 				if tc.req.Id != client.ID {
 					t.Errorf("expected stored client with ID: %s, found %s", tc.req.Id, client.ID)
 				}
@@ -491,7 +491,7 @@ func TestUpdateClient(t *testing.T) {
 					}
 				}
 			}
-
+			
 			if tc.cleanup != nil {
 				tc.cleanup(t, tc.req.Id)
 			}

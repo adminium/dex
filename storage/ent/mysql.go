@@ -11,14 +11,14 @@ import (
 	"os"
 	"strconv"
 	"time"
-
+	
 	entSQL "entgo.io/ent/dialect/sql"
 	"github.com/go-sql-driver/mysql" // Register mysql driver.
-
-	"github.com/dexidp/dex/pkg/log"
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/ent/client"
-	"github.com/dexidp/dex/storage/ent/db"
+	
+	"github.com/adminium/dex/pkg/log"
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/ent/client"
+	"github.com/adminium/dex/storage/ent/db"
 )
 
 const (
@@ -32,9 +32,9 @@ const (
 // MySQL options for creating an SQL db.
 type MySQL struct {
 	NetworkDB
-
+	
 	SSL SSL `json:"ssl"`
-
+	
 	params map[string]string
 }
 
@@ -45,24 +45,24 @@ func (m *MySQL) Open(logger log.Logger) (storage.Storage, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	
 	databaseClient := client.NewDatabase(
 		client.WithClient(db.NewClient(db.Driver(drv))),
 		client.WithHasher(sha256.New),
 		// Set tx isolation leve for each transaction as dex does for postgres
 		client.WithTxIsolationLevel(sql.LevelSerializable),
 	)
-
+	
 	if err := databaseClient.Schema().Create(context.TODO()); err != nil {
 		return nil, err
 	}
-
+	
 	return databaseClient, nil
 }
 
 func (m *MySQL) driver() (*entSQL.Driver, error) {
 	var tlsConfig string
-
+	
 	switch {
 	case m.SSL.CAFile != "" || m.SSL.CertFile != "" || m.SSL.KeyFile != "":
 		if err := m.makeTLSConfig(); err != nil {
@@ -74,19 +74,19 @@ func (m *MySQL) driver() (*entSQL.Driver, error) {
 	default:
 		tlsConfig = m.SSL.Mode
 	}
-
+	
 	drv, err := entSQL.Open("mysql", m.dsn(tlsConfig))
 	if err != nil {
 		return nil, err
 	}
-
+	
 	if m.MaxIdleConns == 0 {
-		/* Override default behaviour to fix https://github.com/dexidp/dex/issues/1608 */
+		/* Override default behaviour to fix https://github.com/adminium/dex/issues/1608 */
 		drv.DB().SetMaxIdleConns(0)
 	} else {
 		drv.DB().SetMaxIdleConns(m.MaxIdleConns)
 	}
-
+	
 	return drv, nil
 }
 
@@ -96,20 +96,20 @@ func (m *MySQL) dsn(tlsConfig string) string {
 		Passwd:               m.Password,
 		DBName:               m.Database,
 		AllowNativePasswords: true,
-
+		
 		Timeout: time.Second * time.Duration(m.ConnectionTimeout),
-
+		
 		TLSConfig: tlsConfig,
-
+		
 		ParseTime: true,
 		Params:    make(map[string]string),
 	}
-
+	
 	if m.Host != "" {
 		if m.Host[0] != '/' {
 			cfg.Net = "tcp"
 			cfg.Addr = m.Host
-
+			
 			if m.Port != 0 {
 				cfg.Addr = net.JoinHostPort(m.Host, strconv.Itoa(int(m.Port)))
 			}
@@ -118,31 +118,31 @@ func (m *MySQL) dsn(tlsConfig string) string {
 			cfg.Addr = m.Host
 		}
 	}
-
+	
 	for k, v := range m.params {
 		cfg.Params[k] = v
 	}
-
+	
 	return cfg.FormatDSN()
 }
 
 func (m *MySQL) makeTLSConfig() error {
 	cfg := &tls.Config{}
-
+	
 	if m.SSL.CAFile != "" {
 		rootCertPool := x509.NewCertPool()
-
+		
 		pem, err := os.ReadFile(m.SSL.CAFile)
 		if err != nil {
 			return err
 		}
-
+		
 		if ok := rootCertPool.AppendCertsFromPEM(pem); !ok {
 			return fmt.Errorf("failed to append PEM")
 		}
 		cfg.RootCAs = rootCertPool
 	}
-
+	
 	if m.SSL.CertFile != "" && m.SSL.KeyFile != "" {
 		clientCert := make([]tls.Certificate, 0, 1)
 		certs, err := tls.LoadX509KeyPair(m.SSL.CertFile, m.SSL.KeyFile)
@@ -152,7 +152,7 @@ func (m *MySQL) makeTLSConfig() error {
 		clientCert = append(clientCert, certs)
 		cfg.Certificates = clientCert
 	}
-
+	
 	mysql.RegisterTLSConfig(mysqlSSLCustom, cfg)
 	return nil
 }

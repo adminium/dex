@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/storage"
 )
 
 // TODO(ericchiang): The update, insert, and select methods queries are all
@@ -85,7 +85,7 @@ type scanner interface {
 
 func (c *conn) GarbageCollect(now time.Time) (storage.GCResult, error) {
 	result := storage.GCResult{}
-
+	
 	r, err := c.Exec(`delete from auth_request where expiry < $1`, now)
 	if err != nil {
 		return result, fmt.Errorf("gc auth_request: %v", err)
@@ -93,7 +93,7 @@ func (c *conn) GarbageCollect(now time.Time) (storage.GCResult, error) {
 	if n, err := r.RowsAffected(); err == nil {
 		result.AuthRequests = n
 	}
-
+	
 	r, err = c.Exec(`delete from auth_code where expiry < $1`, now)
 	if err != nil {
 		return result, fmt.Errorf("gc auth_code: %v", err)
@@ -101,7 +101,7 @@ func (c *conn) GarbageCollect(now time.Time) (storage.GCResult, error) {
 	if n, err := r.RowsAffected(); err == nil {
 		result.AuthCodes = n
 	}
-
+	
 	r, err = c.Exec(`delete from device_request where expiry < $1`, now)
 	if err != nil {
 		return result, fmt.Errorf("gc device_request: %v", err)
@@ -109,7 +109,7 @@ func (c *conn) GarbageCollect(now time.Time) (storage.GCResult, error) {
 	if n, err := r.RowsAffected(); err == nil {
 		result.DeviceRequests = n
 	}
-
+	
 	r, err = c.Exec(`delete from device_token where expiry < $1`, now)
 	if err != nil {
 		return result, fmt.Errorf("gc device_token: %v", err)
@@ -117,7 +117,7 @@ func (c *conn) GarbageCollect(now time.Time) (storage.GCResult, error) {
 	if n, err := r.RowsAffected(); err == nil {
 		result.DeviceTokens = n
 	}
-
+	
 	return result, err
 }
 
@@ -161,7 +161,7 @@ func (c *conn) UpdateAuthRequest(id string, updater func(a storage.AuthRequest) 
 		if err != nil {
 			return err
 		}
-
+		
 		a, err := updater(r)
 		if err != nil {
 			return err
@@ -382,7 +382,7 @@ func (c *conn) ListRefreshTokens() ([]storage.RefreshToken, error) {
 		return nil, fmt.Errorf("query: %v", err)
 	}
 	defer rows.Close()
-
+	
 	var tokens []storage.RefreshToken
 	for rows.Next() {
 		r, err := scanRefresh(rows)
@@ -428,12 +428,12 @@ func (c *conn) UpdateKeys(updater func(old storage.Keys) (storage.Keys, error)) 
 			firstUpdate = true
 			old = storage.Keys{}
 		}
-
+		
 		nk, err := updater(old)
 		if err != nil {
 			return err
 		}
-
+		
 		if firstUpdate {
 			_, err = tx.Exec(`
 				insert into keys (
@@ -501,7 +501,7 @@ func (c *conn) UpdateClient(id string, updater func(old storage.Client) (storage
 		if err != nil {
 			return err
 		}
-
+		
 		_, err = tx.Exec(`
 			update client
 			set
@@ -562,7 +562,7 @@ func (c *conn) ListClients() ([]storage.Client, error) {
 		return nil, err
 	}
 	defer rows.Close()
-
+	
 	var clients []storage.Client
 	for rows.Next() {
 		cli, err := scanClient(rows)
@@ -618,7 +618,7 @@ func (c *conn) UpdatePassword(email string, updater func(p storage.Password) (st
 		if err != nil {
 			return err
 		}
-
+		
 		np, err := updater(p)
 		if err != nil {
 			return err
@@ -660,7 +660,7 @@ func (c *conn) ListPasswords() ([]storage.Password, error) {
 		return nil, err
 	}
 	defer rows.Close()
-
+	
 	var passwords []storage.Password
 	for rows.Next() {
 		p, err := scanPassword(rows)
@@ -714,7 +714,7 @@ func (c *conn) UpdateOfflineSessions(userID string, connID string, updater func(
 		if err != nil {
 			return err
 		}
-
+		
 		newSession, err := updater(s)
 		if err != nil {
 			return err
@@ -787,7 +787,7 @@ func (c *conn) UpdateConnector(id string, updater func(s storage.Connector) (sto
 		if err != nil {
 			return err
 		}
-
+		
 		newConn, err := updater(connector)
 		if err != nil {
 			return err
@@ -846,7 +846,7 @@ func (c *conn) ListConnectors() ([]storage.Connector, error) {
 		return nil, err
 	}
 	defer rows.Close()
-
+	
 	var connectors []storage.Connector
 	for rows.Next() {
 		conn, err := scanConnector(rows)
@@ -875,7 +875,7 @@ func (c *conn) DeleteOfflineSessions(userID string, connID string) error {
 	if err != nil {
 		return fmt.Errorf("delete offline_session: user_id = %s, conn_id = %s", userID, connID)
 	}
-
+	
 	// For now mandate that the driver implements RowsAffected. If we ever need to support
 	// a driver that doesn't implement this, we can run this in a transaction with a get beforehand.
 	n, err := result.RowsAffected()
@@ -894,7 +894,7 @@ func (c *conn) delete(table, field, id string) error {
 	if err != nil {
 		return fmt.Errorf("delete %s: %v", table, id)
 	}
-
+	
 	// For now mandate that the driver implements RowsAffected. If we ever need to support
 	// a driver that doesn't implement this, we can run this in a transaction with a get beforehand.
 	n, err := result.RowsAffected()

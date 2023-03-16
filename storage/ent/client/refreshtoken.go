@@ -2,8 +2,8 @@ package client
 
 import (
 	"context"
-
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/storage"
 )
 
 // CreateRefresh saves provided refresh token into the database.
@@ -39,7 +39,7 @@ func (d *Database) ListRefreshTokens() ([]storage.RefreshToken, error) {
 	if err != nil {
 		return nil, convertDBError("list refresh tokens: %w", err)
 	}
-
+	
 	storageRefreshTokens := make([]storage.RefreshToken, 0, len(refreshTokens))
 	for _, r := range refreshTokens {
 		storageRefreshTokens = append(storageRefreshTokens, toStorageRefreshToken(r))
@@ -71,17 +71,17 @@ func (d *Database) UpdateRefreshToken(id string, updater func(old storage.Refres
 	if err != nil {
 		return convertDBError("update refresh token tx: %w", err)
 	}
-
+	
 	token, err := tx.RefreshToken.Get(context.TODO(), id)
 	if err != nil {
 		return rollback(tx, "update refresh token database: %w", err)
 	}
-
+	
 	newtToken, err := updater(toStorageRefreshToken(token))
 	if err != nil {
 		return rollback(tx, "update refresh token updating: %w", err)
 	}
-
+	
 	_, err = tx.RefreshToken.UpdateOneID(newtToken.ID).
 		SetClientID(newtToken.ClientID).
 		SetScopes(newtToken.Scopes).
@@ -103,7 +103,7 @@ func (d *Database) UpdateRefreshToken(id string, updater func(old storage.Refres
 	if err != nil {
 		return rollback(tx, "update refresh token uploading: %w", err)
 	}
-
+	
 	if err = tx.Commit(); err != nil {
 		return rollback(tx, "update refresh token commit: %w", err)
 	}

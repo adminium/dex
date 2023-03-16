@@ -12,13 +12,13 @@ import (
 	"strings"
 	"testing"
 	"time"
-
+	
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/conformance"
+	
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/conformance"
 )
 
 const kubeconfigPathVariableName = "DEX_KUBERNETES_CONFIG_PATH"
@@ -27,7 +27,7 @@ func TestStorage(t *testing.T) {
 	if os.Getenv(kubeconfigPathVariableName) == "" {
 		t.Skipf("variable %q not set, skipping kubernetes storage tests\n", kubeconfigPathVariableName)
 	}
-
+	
 	suite.Run(t, new(StorageTestSuite))
 }
 
@@ -43,7 +43,7 @@ func expandDir(dir string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-
+		
 		dir = filepath.Join(homedir, strings.TrimPrefix(dir, "~/"))
 	}
 	return dir, nil
@@ -52,20 +52,20 @@ func expandDir(dir string) (string, error) {
 func (s *StorageTestSuite) SetupTest() {
 	kubeconfigPath, err := expandDir(os.Getenv(kubeconfigPathVariableName))
 	s.Require().NoError(err)
-
+	
 	config := Config{
 		KubeConfigFile: kubeconfigPath,
 	}
-
+	
 	logger := &logrus.Logger{
 		Out:       os.Stderr,
 		Formatter: &logrus.TextFormatter{DisableColors: true},
 		Level:     logrus.DebugLevel,
 	}
-
+	
 	kubeClient, err := config.open(logger, true)
 	s.Require().NoError(err)
-
+	
 	s.client = kubeClient
 }
 
@@ -87,7 +87,7 @@ func (s *StorageTestSuite) TestStorage() {
 		}
 		return s.client
 	}
-
+	
 	conformance.RunTests(s.T(), newStorage)
 	conformance.RunTransactionTests(s.T(), newStorage)
 }
@@ -95,7 +95,7 @@ func (s *StorageTestSuite) TestStorage() {
 func TestURLFor(t *testing.T) {
 	tests := []struct {
 		apiVersion, namespace, resource, name string
-
+		
 		baseURL string
 		want    string
 	}{
@@ -126,14 +126,14 @@ func TestURLFor(t *testing.T) {
 			"https://k8s.example.com/apis/foo/v1/bar/a",
 		},
 	}
-
+	
 	for _, test := range tests {
 		c := &client{baseURL: test.baseURL}
 		got, err := c.urlFor(test.apiVersion, test.namespace, test.resource, test.name)
 		if err != nil {
 			t.Errorf("got error: %v", err)
 		}
-
+		
 		if got != test.want {
 			t.Errorf("(&client{baseURL:%q}).urlFor(%q, %q, %q, %q): expected %q got %q",
 				test.baseURL,
@@ -146,7 +146,7 @@ func TestURLFor(t *testing.T) {
 
 func TestUpdateKeys(t *testing.T) {
 	fakeUpdater := func(old storage.Keys) (storage.Keys, error) { return storage.Keys{}, nil }
-
+	
 	tests := []struct {
 		name               string
 		updater            func(old storage.Keys) (storage.Keys, error)
@@ -220,16 +220,16 @@ func TestUpdateKeys(t *testing.T) {
 			nil,
 		},
 	}
-
+	
 	for _, test := range tests {
 		client := newStatusCodesResponseTestClient(test.getResponseCode, test.actionResponseCode)
-
+		
 		err := client.UpdateKeys(test.updater)
 		if err != nil {
 			if !test.wantErr {
 				t.Fatalf("Test %q: %v", test.name, err)
 			}
-
+			
 			if test.exactErr != nil && test.exactErr.Error() != err.Error() {
 				t.Fatalf("Test %q: %v, wanted: %v", test.name, err, test.exactErr)
 			}
@@ -246,7 +246,7 @@ func newStatusCodesResponseTestClient(getResponseCode, actionResponseCode int) *
 		}
 		w.Write([]byte(`{}`)) // Empty json is enough, we will test only response codes here
 	}))
-
+	
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
@@ -288,7 +288,7 @@ func TestRetryOnConflict(t *testing.T) {
 			"",
 		},
 	}
-
+	
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
 			err := retryOnConflict(context.TODO(), testCase.action)
@@ -305,25 +305,25 @@ func TestRefreshTokenLock(t *testing.T) {
 	if os.Getenv(kubeconfigPathVariableName) == "" {
 		t.Skipf("variable %q not set, skipping kubernetes storage tests\n", kubeconfigPathVariableName)
 	}
-
+	
 	kubeconfigPath, err := expandDir(os.Getenv(kubeconfigPathVariableName))
 	require.NoError(t, err)
-
+	
 	config := Config{
 		KubeConfigFile: kubeconfigPath,
 	}
-
+	
 	logger := &logrus.Logger{
 		Out:       os.Stderr,
 		Formatter: &logrus.TextFormatter{DisableColors: true},
 		Level:     logrus.DebugLevel,
 	}
-
+	
 	kubeClient, err := config.open(logger, true)
 	require.NoError(t, err)
-
+	
 	lockCheckPeriod = time.Nanosecond
-
+	
 	// Creating a storage with an existing refresh token and offline session for the user.
 	id := storage.NewID()
 	r := storage.RefreshToken{
@@ -344,10 +344,10 @@ func TestRefreshTokenLock(t *testing.T) {
 		},
 		ConnectorData: []byte(`{"some":"data"}`),
 	}
-
+	
 	err = kubeClient.CreateRefresh(r)
 	require.NoError(t, err)
-
+	
 	t.Run("Timeout lock error", func(t *testing.T) {
 		err = kubeClient.UpdateRefreshToken(r.ID, func(r storage.RefreshToken) (storage.RefreshToken, error) {
 			r.Token = "update-result-1"
@@ -359,33 +359,33 @@ func TestRefreshTokenLock(t *testing.T) {
 			return r, nil
 		})
 		require.NoError(t, err)
-
+		
 		token, err := kubeClient.GetRefresh(r.ID)
 		require.NoError(t, err)
 		require.Equal(t, "update-result-1", token.Token)
 	})
-
+	
 	t.Run("Break the lock", func(t *testing.T) {
 		var lockBroken bool
 		lockTimeout = -time.Hour
-
+		
 		err = kubeClient.UpdateRefreshToken(r.ID, func(r storage.RefreshToken) (storage.RefreshToken, error) {
 			r.Token = "update-result-2"
 			if lockBroken {
 				return r, nil
 			}
-
+			
 			err := kubeClient.UpdateRefreshToken(r.ID, func(r storage.RefreshToken) (storage.RefreshToken, error) {
 				r.Token = "should-break-the-lock-and-finish-updating"
 				return r, nil
 			})
 			require.NoError(t, err)
-
+			
 			lockBroken = true
 			return r, nil
 		})
 		require.NoError(t, err)
-
+		
 		token, err := kubeClient.GetRefresh(r.ID)
 		require.NoError(t, err)
 		// Because concurrent update breaks the lock, the final result will be the value of the first update

@@ -5,8 +5,8 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"github.com/dexidp/dex/storage/kubernetes/k8sapi"
+	
+	"github.com/adminium/dex/storage/kubernetes/k8sapi"
 )
 
 // transport is a simple http.Transport wrapper
@@ -39,7 +39,7 @@ func wrapRoundTripper(base http.RoundTripper, user k8sapi.AuthInfo, inCluster bo
 			base: base,
 		}
 	}
-
+	
 	if user.Token != "" {
 		return transport{
 			updateReq: func(r *http.Request) {
@@ -48,7 +48,7 @@ func wrapRoundTripper(base http.RoundTripper, user k8sapi.AuthInfo, inCluster bo
 			base: base,
 		}
 	}
-
+	
 	if user.Username != "" && user.Password != "" {
 		return transport{
 			updateReq: func(r *http.Request) {
@@ -57,7 +57,7 @@ func wrapRoundTripper(base http.RoundTripper, user k8sapi.AuthInfo, inCluster bo
 			base: base,
 		}
 	}
-
+	
 	return base
 }
 
@@ -76,10 +76,10 @@ const renewTokenPeriod = 30 * time.Second
 type inClusterTransportHelper struct {
 	mu   sync.RWMutex
 	info k8sapi.AuthInfo
-
+	
 	expiry time.Time
 	now    func() time.Time
-
+	
 	tokenLocation string
 }
 
@@ -89,9 +89,9 @@ func newInClusterTransportHelper(info k8sapi.AuthInfo) *inClusterTransportHelper
 		now:           time.Now,
 		tokenLocation: "/var/run/secrets/kubernetes.io/serviceaccount/token",
 	}
-
+	
 	user.UpdateToken()
-
+	
 	return user
 }
 
@@ -99,17 +99,17 @@ func (c *inClusterTransportHelper) UpdateToken() {
 	c.mu.RLock()
 	exp := c.expiry
 	c.mu.RUnlock()
-
+	
 	if !c.now().After(exp) {
 		// Do not need to update token yet
 		return
 	}
-
+	
 	token, err := os.ReadFile(c.tokenLocation)
 	if err != nil {
 		return
 	}
-
+	
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.info.Token = string(token)

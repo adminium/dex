@@ -2,13 +2,13 @@ package etcd
 
 import (
 	"time"
-
+	
 	"go.etcd.io/etcd/client/pkg/v3/transport"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/namespace"
-
-	"github.com/dexidp/dex/pkg/log"
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/pkg/log"
+	"github.com/adminium/dex/storage"
 )
 
 var defaultDialTimeout = 2 * time.Second
@@ -45,29 +45,29 @@ func (p *Etcd) open(logger log.Logger) (*conn, error) {
 		Username:    p.Username,
 		Password:    p.Password,
 	}
-
+	
 	var cfgtls *transport.TLSInfo
 	tlsinfo := transport.TLSInfo{}
 	if p.SSL.CertFile != "" {
 		tlsinfo.CertFile = p.SSL.CertFile
 		cfgtls = &tlsinfo
 	}
-
+	
 	if p.SSL.KeyFile != "" {
 		tlsinfo.KeyFile = p.SSL.KeyFile
 		cfgtls = &tlsinfo
 	}
-
+	
 	if p.SSL.CAFile != "" {
 		tlsinfo.TrustedCAFile = p.SSL.CAFile
 		cfgtls = &tlsinfo
 	}
-
+	
 	if p.SSL.ServerName != "" {
 		tlsinfo.ServerName = p.SSL.ServerName
 		cfgtls = &tlsinfo
 	}
-
+	
 	if cfgtls != nil {
 		clientTLS, err := cfgtls.ClientConfig()
 		if err != nil {
@@ -75,7 +75,7 @@ func (p *Etcd) open(logger log.Logger) (*conn, error) {
 		}
 		cfg.TLS = clientTLS
 	}
-
+	
 	db, err := clientv3.New(cfg)
 	if err != nil {
 		return nil, err

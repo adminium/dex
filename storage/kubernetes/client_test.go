@@ -9,11 +9,11 @@ import (
 	"sync"
 	"testing"
 	"time"
-
+	
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-
-	"github.com/dexidp/dex/storage/kubernetes/k8sapi"
+	
+	"github.com/adminium/dex/storage/kubernetes/k8sapi"
 )
 
 // This test does not have an explicit error condition but is used
@@ -23,9 +23,9 @@ func TestIDToName(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(n)
 	c := make(chan struct{})
-
+	
 	h := func() hash.Hash { return fnv.New64() }
-
+	
 	for i := 0; i < n; i++ {
 		go func() {
 			<-c
@@ -40,10 +40,10 @@ func TestIDToName(t *testing.T) {
 
 func TestOfflineTokenName(t *testing.T) {
 	h := func() hash.Hash { return fnv.New64() }
-
+	
 	userID1 := "john"
 	userID2 := "jane"
-
+	
 	id1 := offlineTokenName(userID1, "local", h)
 	id2 := offlineTokenName(userID2, "local", h)
 	if id1 == id2 {
@@ -57,7 +57,7 @@ func TestInClusterTransport(t *testing.T) {
 		Formatter: &logrus.TextFormatter{DisableColors: true},
 		Level:     logrus.DebugLevel,
 	}
-
+	
 	user := k8sapi.AuthInfo{Token: "abc"}
 	cli, err := newClient(
 		k8sapi.Cluster{},
@@ -67,13 +67,13 @@ func TestInClusterTransport(t *testing.T) {
 		true,
 	)
 	require.NoError(t, err)
-
+	
 	fpath := filepath.Join(os.TempDir(), "test.in_cluster")
 	defer os.RemoveAll(fpath)
-
+	
 	err = os.WriteFile(fpath, []byte("def"), 0o644)
 	require.NoError(t, err)
-
+	
 	tests := []struct {
 		name     string
 		time     func() time.Time
@@ -94,13 +94,13 @@ func TestInClusterTransport(t *testing.T) {
 			expected: "abc",
 		},
 	}
-
+	
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			helper := newInClusterTransportHelper(user)
 			helper.now = tc.time
 			helper.tokenLocation = fpath
-
+			
 			cli.client.Transport = transport{
 				updateReq: func(r *http.Request) {
 					helper.UpdateToken()
@@ -108,7 +108,7 @@ func TestInClusterTransport(t *testing.T) {
 				},
 				base: cli.client.Transport,
 			}
-
+			
 			_ = cli.isCRDReady("test")
 			require.Equal(t, tc.expected, helper.info.Token)
 		})
@@ -132,65 +132,65 @@ func TestGetClusterConfigNamespace(t *testing.T) {
 		os.Setenv(namespaceENVVariableName, "namespace-from-env")
 		defer os.Unsetenv(namespaceENVVariableName)
 	}
-
+	
 	var namespaceFile string
 	{
 		tmpfile, err := os.CreateTemp(os.TempDir(), "test-get-cluster-config-namespace")
 		require.NoError(t, err)
-
+		
 		_, err = tmpfile.Write([]byte("namespace-from-file"))
 		require.NoError(t, err)
-
+		
 		namespaceFile = tmpfile.Name()
 		defer os.Remove(namespaceFile)
 	}
-
+	
 	tests := []struct {
 		name        string
 		token       string
 		fileName    string
 		envVariable string
-
+		
 		expectedError     bool
 		expectedNamespace string
 	}{
 		{
 			name:        "With env variable",
 			envVariable: "TEST_GET_CLUSTER_CONFIG_NAMESPACE",
-
+			
 			expectedNamespace: "namespace-from-env",
 		},
 		{
 			name:  "With token",
 			token: serviceAccountToken,
-
+			
 			expectedNamespace: "dex-test-namespace",
 		},
 		{
 			name:     "With namespace file",
 			fileName: namespaceFile,
-
+			
 			expectedNamespace: "namespace-from-file",
 		},
 		{
 			name:     "With file and token",
 			fileName: namespaceFile,
 			token:    serviceAccountToken,
-
+			
 			expectedNamespace: "dex-test-namespace",
 		},
 		{
 			name:        "With file and env",
 			fileName:    namespaceFile,
 			envVariable: "TEST_GET_CLUSTER_CONFIG_NAMESPACE",
-
+			
 			expectedNamespace: "namespace-from-env",
 		},
 		{
 			name:        "With token and env",
 			envVariable: "TEST_GET_CLUSTER_CONFIG_NAMESPACE",
 			token:       serviceAccountToken,
-
+			
 			expectedNamespace: "namespace-from-env",
 		},
 		{
@@ -198,7 +198,7 @@ func TestGetClusterConfigNamespace(t *testing.T) {
 			fileName:    namespaceFile,
 			token:       serviceAccountToken,
 			envVariable: "TEST_GET_CLUSTER_CONFIG_NAMESPACE",
-
+			
 			expectedNamespace: "namespace-from-env",
 		},
 		{
@@ -206,7 +206,7 @@ func TestGetClusterConfigNamespace(t *testing.T) {
 			expectedError: true,
 		},
 	}
-
+	
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			namespace, err := getInClusterConfigNamespace(tc.token, tc.envVariable, tc.fileName)

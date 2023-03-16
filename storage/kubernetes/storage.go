@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/dexidp/dex/pkg/log"
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/kubernetes/k8sapi"
+	
+	"github.com/adminium/dex/pkg/log"
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/kubernetes/k8sapi"
 )
 
 const (
@@ -71,7 +71,7 @@ func (c *Config) open(logger log.Logger, waitForResources bool) (*client, error)
 	if !c.InCluster && (c.KubeConfigFile == "") {
 		return nil, errors.New("must specify either 'inCluster' or 'kubeConfigFile'")
 	}
-
+	
 	var (
 		cluster   k8sapi.Cluster
 		user      k8sapi.AuthInfo
@@ -86,25 +86,25 @@ func (c *Config) open(logger log.Logger, waitForResources bool) (*client, error)
 	if err != nil {
 		return nil, err
 	}
-
+	
 	cli, err := newClient(cluster, user, namespace, logger, c.InCluster)
 	if err != nil {
 		return nil, fmt.Errorf("create client: %v", err)
 	}
-
+	
 	if err = cli.detectKubernetesVersion(); err != nil {
 		return nil, fmt.Errorf("cannot get kubernetes version: %v", err)
 	}
-
+	
 	ctx, cancel := context.WithCancel(context.Background())
-
+	
 	logger.Info("creating custom Kubernetes resources")
 	if !cli.registerCustomResources() {
 		if waitForResources {
 			cancel()
 			return nil, fmt.Errorf("failed creating custom resources")
 		}
-
+		
 		// Try to synchronously create the custom resources once. This doesn't mean
 		// they'll immediately be available, but ensures that the client will actually try
 		// once.
@@ -113,7 +113,7 @@ func (c *Config) open(logger log.Logger, waitForResources bool) (*client, error)
 				if cli.registerCustomResources() {
 					return
 				}
-
+				
 				select {
 				case <-ctx.Done():
 					return
@@ -122,14 +122,14 @@ func (c *Config) open(logger log.Logger, waitForResources bool) (*client, error)
 			}
 		}()
 	}
-
+	
 	if waitForResources {
 		if err := cli.waitForCRDs(ctx); err != nil {
 			cancel()
 			return nil, err
 		}
 	}
-
+	
 	// If the client is closed, stop trying to create resources.
 	cli.cancel = cancel
 	return cli, nil
@@ -143,14 +143,14 @@ func (c *Config) open(logger log.Logger, waitForResources bool) (*client, error)
 // Creating a custom resource does not mean that they'll be immediately available.
 func (cli *client) registerCustomResources() (ok bool) {
 	ok = true
-
+	
 	definitions := customResourceDefinitions(cli.crdAPIVersion)
 	length := len(definitions)
-
+	
 	for i := 0; i < length; i++ {
 		var err error
 		var resourceName string
-
+		
 		r := definitions[i]
 		var i interface{}
 		cli.logger.Infof("checking if custom resource %s has already been created...", r.ObjectMeta.Name)
@@ -160,10 +160,10 @@ func (cli *client) registerCustomResources() (ok bool) {
 		} else {
 			cli.logger.Infof("failed to list custom resource %s, attempting to create: %v", r.ObjectMeta.Name, err)
 		}
-
+		
 		err = cli.postResource(cli.crdAPIVersion, "", "customresourcedefinitions", r)
 		resourceName = r.ObjectMeta.Name
-
+		
 		if err != nil {
 			switch err {
 			case storage.ErrAlreadyExists:
@@ -187,16 +187,16 @@ func (cli *client) registerCustomResources() (ok bool) {
 func (cli *client) waitForCRDs(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
-
+	
 	for _, crd := range customResourceDefinitions(cli.crdAPIVersion) {
 		for {
 			err := cli.isCRDReady(crd.Name)
 			if err == nil {
 				break
 			}
-
+			
 			cli.logger.Errorf("checking CRD: %v", err)
-
+			
 			select {
 			case <-ctx.Done():
 				return errors.New("timed out waiting for CRDs to be available")
@@ -214,7 +214,7 @@ func (cli *client) isCRDReady(name string) error {
 	if err != nil {
 		return fmt.Errorf("get crd %s: %v", name, err)
 	}
-
+	
 	conds := make(map[string]string) // For debugging, keep the conditions around.
 	for _, c := range r.Status.Conditions {
 		if c.Type == k8sapi.Established && c.Status == k8sapi.ConditionTrue {
@@ -379,7 +379,7 @@ func (cli *client) ListPasswords() (passwords []storage.Password, err error) {
 	if err = cli.list(resourcePassword, &passwordList); err != nil {
 		return passwords, fmt.Errorf("failed to list passwords: %v", err)
 	}
-
+	
 	for _, password := range passwordList.Passwords {
 		p := storage.Password{
 			Email:    password.Email,
@@ -389,7 +389,7 @@ func (cli *client) ListPasswords() (passwords []storage.Password, err error) {
 		}
 		passwords = append(passwords, p)
 	}
-
+	
 	return
 }
 
@@ -398,12 +398,12 @@ func (cli *client) ListConnectors() (connectors []storage.Connector, err error) 
 	if err = cli.list(resourceConnector, &connectorList); err != nil {
 		return connectors, fmt.Errorf("failed to list connectors: %v", err)
 	}
-
+	
 	connectors = make([]storage.Connector, len(connectorList.Connectors))
 	for i, connector := range connectorList.Connectors {
 		connectors[i] = toStorageConnector(connector)
 	}
-
+	
 	return
 }
 
@@ -452,27 +452,27 @@ func (cli *client) DeleteConnector(id string) error {
 
 func (cli *client) UpdateRefreshToken(id string, updater func(old storage.RefreshToken) (storage.RefreshToken, error)) error {
 	lock := newRefreshTokenLock(cli)
-
+	
 	if err := lock.Lock(id); err != nil {
 		return err
 	}
 	defer lock.Unlock(id)
-
+	
 	return retryOnConflict(context.TODO(), func() error {
 		r, err := cli.getRefreshToken(id)
 		if err != nil {
 			return err
 		}
-
+		
 		updated, err := updater(toStorageRefreshToken(r))
 		if err != nil {
 			return err
 		}
 		updated.ID = id
-
+		
 		newToken := cli.fromStorageRefreshToken(updated)
 		newToken.ObjectMeta = r.ObjectMeta
-
+		
 		return cli.put(resourceRefreshToken, r.ObjectMeta.Name, newToken)
 	})
 }
@@ -482,13 +482,13 @@ func (cli *client) UpdateClient(id string, updater func(old storage.Client) (sto
 	if err != nil {
 		return err
 	}
-
+	
 	updated, err := updater(toStorageClient(c))
 	if err != nil {
 		return err
 	}
 	updated.ID = c.ID
-
+	
 	newClient := cli.fromStorageClient(updated)
 	newClient.ObjectMeta = c.ObjectMeta
 	return cli.put(resourceClient, c.ObjectMeta.Name, newClient)
@@ -499,13 +499,13 @@ func (cli *client) UpdatePassword(email string, updater func(old storage.Passwor
 	if err != nil {
 		return err
 	}
-
+	
 	updated, err := updater(toStoragePassword(p))
 	if err != nil {
 		return err
 	}
 	updated.Email = p.Email
-
+	
 	newPassword := cli.fromStoragePassword(updated)
 	newPassword.ObjectMeta = p.ObjectMeta
 	return cli.put(resourcePassword, p.ObjectMeta.Name, newPassword)
@@ -517,12 +517,12 @@ func (cli *client) UpdateOfflineSessions(userID string, connID string, updater f
 		if err != nil {
 			return err
 		}
-
+		
 		updated, err := updater(toStorageOfflineSessions(o))
 		if err != nil {
 			return err
 		}
-
+		
 		newOfflineSessions := cli.fromStorageOfflineSessions(updated)
 		newOfflineSessions.ObjectMeta = o.ObjectMeta
 		return cli.put(resourceOfflineSessions, o.ObjectMeta.Name, newOfflineSessions)
@@ -538,17 +538,17 @@ func (cli *client) UpdateKeys(updater func(old storage.Keys) (storage.Keys, erro
 		}
 		firstUpdate = true
 	}
-
+	
 	var oldKeys storage.Keys
 	if !firstUpdate {
 		oldKeys = toStorageKeys(keys)
 	}
-
+	
 	updated, err := updater(oldKeys)
 	if err != nil {
 		return err
 	}
-
+	
 	newKeys := cli.fromStorageKeys(updated)
 	if firstUpdate {
 		err = cli.post(resourceKeys, newKeys)
@@ -557,12 +557,12 @@ func (cli *client) UpdateKeys(updater func(old storage.Keys) (storage.Keys, erro
 			cli.logger.Debugf("Keys creation failed: %v. It is possible that keys have already been created by another dex instance.", err)
 			return errors.New("keys already created by another server instance")
 		}
-
+		
 		return err
 	}
-
+	
 	newKeys.ObjectMeta = keys.ObjectMeta
-
+	
 	err = cli.put(resourceKeys, keysName, newKeys)
 	if isKubernetesAPIConflictError(err) {
 		// We need to tolerate conflicts here in case of HA mode.
@@ -570,7 +570,7 @@ func (cli *client) UpdateKeys(updater func(old storage.Keys) (storage.Keys, erro
 		cli.logger.Debugf("Keys rotation failed: %v. It is possible that keys have already been rotated by another dex instance.", err)
 		return errors.New("keys already rotated by another server instance")
 	}
-
+	
 	return err
 }
 
@@ -580,12 +580,12 @@ func (cli *client) UpdateAuthRequest(id string, updater func(a storage.AuthReque
 	if err != nil {
 		return err
 	}
-
+	
 	updated, err := updater(toStorageAuthRequest(req))
 	if err != nil {
 		return err
 	}
-
+	
 	newReq := cli.fromStorageAuthRequest(updated)
 	newReq.ObjectMeta = req.ObjectMeta
 	return cli.put(resourceAuthRequest, id, newReq)
@@ -598,12 +598,12 @@ func (cli *client) UpdateConnector(id string, updater func(a storage.Connector) 
 		if err != nil {
 			return err
 		}
-
+		
 		updated, err := updater(toStorageConnector(c))
 		if err != nil {
 			return err
 		}
-
+		
 		newConn := cli.fromStorageConnector(updated)
 		newConn.ObjectMeta = c.ObjectMeta
 		return cli.put(resourceConnector, id, newConn)
@@ -615,7 +615,7 @@ func (cli *client) GarbageCollect(now time.Time) (result storage.GCResult, err e
 	if err := cli.listN(resourceAuthRequest, &authRequests, gcResultLimit); err != nil {
 		return result, fmt.Errorf("failed to list auth requests: %v", err)
 	}
-
+	
 	var delErr error
 	for _, authRequest := range authRequests.AuthRequests {
 		if now.After(authRequest.Expiry) {
@@ -629,12 +629,12 @@ func (cli *client) GarbageCollect(now time.Time) (result storage.GCResult, err e
 	if delErr != nil {
 		return result, delErr
 	}
-
+	
 	var authCodes AuthCodeList
 	if err := cli.listN(resourceAuthCode, &authCodes, gcResultLimit); err != nil {
 		return result, fmt.Errorf("failed to list auth codes: %v", err)
 	}
-
+	
 	for _, authCode := range authCodes.AuthCodes {
 		if now.After(authCode.Expiry) {
 			if err := cli.delete(resourceAuthCode, authCode.ObjectMeta.Name); err != nil {
@@ -644,12 +644,12 @@ func (cli *client) GarbageCollect(now time.Time) (result storage.GCResult, err e
 			result.AuthCodes++
 		}
 	}
-
+	
 	var deviceRequests DeviceRequestList
 	if err := cli.listN(resourceDeviceRequest, &deviceRequests, gcResultLimit); err != nil {
 		return result, fmt.Errorf("failed to list device requests: %v", err)
 	}
-
+	
 	for _, deviceRequest := range deviceRequests.DeviceRequests {
 		if now.After(deviceRequest.Expiry) {
 			if err := cli.delete(resourceDeviceRequest, deviceRequest.ObjectMeta.Name); err != nil {
@@ -659,12 +659,12 @@ func (cli *client) GarbageCollect(now time.Time) (result storage.GCResult, err e
 			result.DeviceRequests++
 		}
 	}
-
+	
 	var deviceTokens DeviceTokenList
 	if err := cli.listN(resourceDeviceToken, &deviceTokens, gcResultLimit); err != nil {
 		return result, fmt.Errorf("failed to list device tokens: %v", err)
 	}
-
+	
 	for _, deviceToken := range deviceTokens.DeviceTokens {
 		if now.After(deviceToken.Expiry) {
 			if err := cli.delete(resourceDeviceToken, deviceToken.ObjectMeta.Name); err != nil {
@@ -674,7 +674,7 @@ func (cli *client) GarbageCollect(now time.Time) (result storage.GCResult, err e
 			result.DeviceTokens++
 		}
 	}
-
+	
 	if delErr != nil {
 		return result, delErr
 	}
@@ -721,7 +721,7 @@ func (cli *client) UpdateDeviceToken(deviceCode string, updater func(old storage
 			return err
 		}
 		updated.DeviceCode = deviceCode
-
+		
 		newToken := cli.fromStorageDeviceToken(updated)
 		newToken.ObjectMeta = r.ObjectMeta
 		return cli.put(resourceDeviceToken, r.ObjectMeta.Name, newToken)
@@ -739,17 +739,17 @@ func isKubernetesAPIConflictError(err error) bool {
 
 func retryOnConflict(ctx context.Context, action func() error) error {
 	policy := []int{10, 20, 100, 300, 600}
-
+	
 	attempts := 0
 	getNextStep := func() time.Duration {
 		step := policy[attempts]
 		return time.Duration(step*5+rand.Intn(step)) * time.Microsecond
 	}
-
+	
 	if err := action(); err == nil || !isKubernetesAPIConflictError(err) {
 		return err
 	}
-
+	
 	for {
 		select {
 		case <-time.After(getNextStep()):
@@ -757,7 +757,7 @@ func retryOnConflict(ctx context.Context, action func() error) error {
 			if err == nil || !isKubernetesAPIConflictError(err) {
 				return err
 			}
-
+			
 			attempts++
 			if attempts >= 4 {
 				return fmt.Errorf("maximum timeout reached while retrying a conflicted request: %w", err)

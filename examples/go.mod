@@ -1,13 +1,13 @@
-module github.com/dexidp/dex/examples
+module github.com/adminium/dex/examples
 
 go 1.17
 
 require (
+	github.com/adminium/dex/api/v2 v2.0.0
 	github.com/coreos/go-oidc/v3 v3.1.0
-	github.com/dexidp/dex/api/v2 v2.0.0
 	github.com/spf13/cobra v1.3.0
-	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
-	google.golang.org/grpc v1.43.0
+	golang.org/x/oauth2 v0.0.0-20221014153046-6fdb5e3db783
+	google.golang.org/grpc v1.52.0
 )
 
 require (
@@ -19,7 +19,9 @@ require (
 	golang.org/x/sys v0.5.0 // indirect
 	golang.org/x/text v0.7.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20220114231437-d2e6a121cae0 // indirect
-	google.golang.org/protobuf v1.27.1 // indirect
+	google.golang.org/genproto v0.0.0-20221118155620-16455021b5e6 // indirect
+	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 )
+
+replace github.com/adminium/dex/api/v2 => ../api/v2

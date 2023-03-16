@@ -7,17 +7,17 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
+	
 	"golang.org/x/crypto/bcrypt"
-
-	"github.com/dexidp/dex/pkg/log"
-	"github.com/dexidp/dex/server"
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/ent"
-	"github.com/dexidp/dex/storage/etcd"
-	"github.com/dexidp/dex/storage/kubernetes"
-	"github.com/dexidp/dex/storage/memory"
-	"github.com/dexidp/dex/storage/sql"
+	
+	"github.com/adminium/dex/pkg/log"
+	"github.com/adminium/dex/server"
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/ent"
+	"github.com/adminium/dex/storage/etcd"
+	"github.com/adminium/dex/storage/kubernetes"
+	"github.com/adminium/dex/storage/memory"
+	"github.com/adminium/dex/storage/sql"
 )
 
 // Config is the config format for the main application.
@@ -30,21 +30,21 @@ type Config struct {
 	GRPC      GRPC      `json:"grpc"`
 	Expiry    Expiry    `json:"expiry"`
 	Logger    Logger    `json:"logger"`
-
+	
 	Frontend server.WebConfig `json:"frontend"`
-
+	
 	// StaticConnectors are user defined connectors specified in the ConfigMap
 	// Write operations, like updating a connector, will fail.
 	StaticConnectors []Connector `json:"connectors"`
-
+	
 	// StaticClients cause the server to use this list of clients rather than
 	// querying the storage. Write operations, like creating a client, will fail.
 	StaticClients []storage.Client `json:"staticClients"`
-
+	
 	// If enabled, the server will maintain a list of passwords which can be used
 	// to identify a user.
 	EnablePasswordDB bool `json:"enablePasswordDB"`
-
+	
 	// StaticPasswords cause the server use this list of passwords rather than
 	// querying the storage. Cannot be specified without enabling a passwords
 	// database.
@@ -69,9 +69,9 @@ func (c Config) Validate() error {
 		{(c.GRPC.TLSCert == "") != (c.GRPC.TLSKey == ""), "must specific both a gRPC TLS cert and key"},
 		{c.GRPC.TLSCert == "" && c.GRPC.TLSClientCA != "", "cannot specify gRPC TLS client CA without a gRPC TLS cert"},
 	}
-
+	
 	var checkErrors []string
-
+	
 	for _, check := range checks {
 		if check.bad {
 			checkErrors = append(checkErrors, check.errMsg)
@@ -107,14 +107,14 @@ func (p *password) UnmarshalJSON(b []byte) error {
 	if len(data.Hash) == 0 {
 		return fmt.Errorf("no password hash provided")
 	}
-
+	
 	// If this value is a valid bcrypt, use it.
 	_, bcryptErr := bcrypt.Cost([]byte(data.Hash))
 	if bcryptErr == nil {
 		p.Hash = []byte(data.Hash)
 		return nil
 	}
-
+	
 	// For backwards compatibility try to base64 decode this value.
 	hashBytes, err := base64.StdEncoding.DecodeString(data.Hash)
 	if err != nil {
@@ -235,7 +235,7 @@ func (s *Storage) UnmarshalJSON(b []byte) error {
 	if !ok {
 		return fmt.Errorf("unknown storage type %q", store.Type)
 	}
-
+	
 	storageConfig := f()
 	if len(store.Config) != 0 {
 		data := []byte(store.Config)
@@ -260,7 +260,7 @@ type Connector struct {
 	Type string `json:"type"`
 	Name string `json:"name"`
 	ID   string `json:"id"`
-
+	
 	Config server.ConnectorConfig `json:"config"`
 }
 
@@ -271,7 +271,7 @@ func (c *Connector) UnmarshalJSON(b []byte) error {
 		Type string `json:"type"`
 		Name string `json:"name"`
 		ID   string `json:"id"`
-
+		
 		Config json.RawMessage `json:"config"`
 	}
 	if err := json.Unmarshal(b, &conn); err != nil {
@@ -281,7 +281,7 @@ func (c *Connector) UnmarshalJSON(b []byte) error {
 	if !ok {
 		return fmt.Errorf("unknown connector type %q", conn.Type)
 	}
-
+	
 	connConfig := f()
 	if len(conn.Config) != 0 {
 		data := []byte(conn.Config)
@@ -308,7 +308,7 @@ func ToStorageConnector(c Connector) (storage.Connector, error) {
 	if err != nil {
 		return storage.Connector{}, fmt.Errorf("failed to marshal connector config: %v", err)
 	}
-
+	
 	return storage.Connector{
 		ID:     c.ID,
 		Type:   c.Type,
@@ -321,16 +321,16 @@ func ToStorageConnector(c Connector) (storage.Connector, error) {
 type Expiry struct {
 	// SigningKeys defines the duration of time after which the SigningKeys will be rotated.
 	SigningKeys string `json:"signingKeys"`
-
+	
 	// IdTokens defines the duration of time for which the IdTokens will be valid.
 	IDTokens string `json:"idTokens"`
-
+	
 	// AuthRequests defines the duration of time for which the AuthRequests will be valid.
 	AuthRequests string `json:"authRequests"`
-
+	
 	// DeviceRequests defines the duration of time for which the DeviceRequests will be valid.
 	DeviceRequests string `json:"deviceRequests"`
-
+	
 	// RefreshTokens defines refresh tokens expiry policy
 	RefreshTokens RefreshToken `json:"refreshTokens"`
 }
@@ -339,7 +339,7 @@ type Expiry struct {
 type Logger struct {
 	// Level sets logging level severity.
 	Level string `json:"level"`
-
+	
 	// Format specifies the format to be used for logging.
 	Format string `json:"format"`
 }

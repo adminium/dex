@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
+	
 	clientv3 "go.etcd.io/etcd/client/v3"
-
-	"github.com/dexidp/dex/pkg/log"
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/pkg/log"
+	"github.com/adminium/dex/storage"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 	keysName             = "openid-connect-keys"
 	deviceRequestPrefix  = "device_req/"
 	deviceTokenPrefix    = "device_token/"
-
+	
 	// defaultStorageTimeout will be applied to all storage's operations.
 	defaultStorageTimeout = 5 * time.Second
 )
@@ -45,7 +45,7 @@ func (c *conn) GarbageCollect(now time.Time) (result storage.GCResult, err error
 	if err != nil {
 		return result, err
 	}
-
+	
 	var delErr error
 	for _, authRequest := range authRequests {
 		if now.After(authRequest.Expiry) {
@@ -59,12 +59,12 @@ func (c *conn) GarbageCollect(now time.Time) (result storage.GCResult, err error
 	if delErr != nil {
 		return result, delErr
 	}
-
+	
 	authCodes, err := c.listAuthCodes(ctx)
 	if err != nil {
 		return result, err
 	}
-
+	
 	for _, authCode := range authCodes {
 		if now.After(authCode.Expiry) {
 			if err := c.deleteKey(ctx, keyID(authCodePrefix, authCode.ID)); err != nil {
@@ -74,12 +74,12 @@ func (c *conn) GarbageCollect(now time.Time) (result storage.GCResult, err error
 			result.AuthCodes++
 		}
 	}
-
+	
 	deviceRequests, err := c.listDeviceRequests(ctx)
 	if err != nil {
 		return result, err
 	}
-
+	
 	for _, deviceRequest := range deviceRequests {
 		if now.After(deviceRequest.Expiry) {
 			if err := c.deleteKey(ctx, keyID(deviceRequestPrefix, deviceRequest.UserCode)); err != nil {
@@ -89,12 +89,12 @@ func (c *conn) GarbageCollect(now time.Time) (result storage.GCResult, err error
 			result.DeviceRequests++
 		}
 	}
-
+	
 	deviceTokens, err := c.listDeviceTokens(ctx)
 	if err != nil {
 		return result, err
 	}
-
+	
 	for _, deviceToken := range deviceTokens {
 		if now.After(deviceToken.Expiry) {
 			if err := c.deleteKey(ctx, keyID(deviceTokenPrefix, deviceToken.DeviceCode)); err != nil {
@@ -542,12 +542,12 @@ func (c *conn) txnUpdate(ctx context.Context, key string, update func(current []
 		currentValue = getResp.Kvs[0].Value
 		modRev = getResp.Kvs[0].ModRevision
 	}
-
+	
 	updatedValue, err := update(currentValue)
 	if err != nil {
 		return err
 	}
-
+	
 	txn := c.db.Txn(ctx)
 	updateResp, err := txn.
 		If(clientv3.Compare(clientv3.ModRevision(key), "=", modRev)).

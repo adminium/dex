@@ -9,11 +9,11 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-
+	
 	"gopkg.in/square/go-jose.v2"
-
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/memory"
+	
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/memory"
 )
 
 func TestParseAuthorizationRequest(t *testing.T) {
@@ -21,11 +21,11 @@ func TestParseAuthorizationRequest(t *testing.T) {
 		name                   string
 		clients                []storage.Client
 		supportedResponseTypes []string
-
+		
 		usePOST bool
-
+		
 		queryParams map[string]string
-
+		
 		expectedError error
 	}{
 		{
@@ -288,18 +288,18 @@ func TestParseAuthorizationRequest(t *testing.T) {
 			expectedError: &redirectedAuthErr{Type: errInvalidRequest},
 		},
 	}
-
+	
 	for _, tc := range tests {
 		func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-
+			
 			httpServer, server := newTestServerMultipleConnectors(ctx, t, func(c *Config) {
 				c.SupportedResponseTypes = tc.supportedResponseTypes
 				c.Storage = storage.WithStaticClients(c.Storage, tc.clients)
 			})
 			defer httpServer.Close()
-
+			
 			params := url.Values{}
 			for k, v := range tc.queryParams {
 				params.Set(k, v)
@@ -312,7 +312,7 @@ func TestParseAuthorizationRequest(t *testing.T) {
 			} else {
 				req = httptest.NewRequest("GET", httpServer.URL+"/auth?"+params.Encode(), nil)
 			}
-
+			
 			_, err := server.parseAuthorizationRequest(req)
 			if tc.expectedError == nil {
 				if err != nil {
@@ -563,7 +563,7 @@ func TestStorageKeySet(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-
+	
 	tests := []struct {
 		name           string
 		tokenGenerator func() (jwt string, err error)
@@ -576,12 +576,12 @@ func TestStorageKeySet(t *testing.T) {
 				if err != nil {
 					return "", err
 				}
-
+				
 				jws, err := signer.Sign([]byte("payload"))
 				if err != nil {
 					return "", err
 				}
-
+				
 				return jws.CompactSerialize()
 			},
 			wantErr: false,
@@ -593,23 +593,23 @@ func TestStorageKeySet(t *testing.T) {
 				if err != nil {
 					return "", err
 				}
-
+				
 				signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.RS256, Key: key}, nil)
 				if err != nil {
 					return "", err
 				}
-
+				
 				jws, err := signer.Sign([]byte("payload"))
 				if err != nil {
 					return "", err
 				}
-
+				
 				return jws.CompactSerialize()
 			},
 			wantErr: true,
 		},
 	}
-
+	
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
@@ -617,9 +617,9 @@ func TestStorageKeySet(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-
+			
 			keySet := &storageKeySet{s}
-
+			
 			_, err = keySet.VerifySignature(context.Background(), jwt)
 			if (err != nil && !tc.wantErr) || (err == nil && tc.wantErr) {
 				t.Fatalf("wantErr = %v, but got err = %v", tc.wantErr, err)

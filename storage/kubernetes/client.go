@@ -22,14 +22,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
+	
 	"github.com/Masterminds/semver"
 	"github.com/ghodss/yaml"
 	"golang.org/x/net/http2"
-
-	"github.com/dexidp/dex/pkg/log"
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/kubernetes/k8sapi"
+	
+	"github.com/adminium/dex/pkg/log"
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/kubernetes/k8sapi"
 )
 
 type client struct {
@@ -37,7 +37,7 @@ type client struct {
 	baseURL   string
 	namespace string
 	logger    log.Logger
-
+	
 	// Hash function to map IDs (which could span a large range) to Kubernetes names.
 	// While this is not currently upgradable, it could be in the future.
 	//
@@ -45,7 +45,7 @@ type client struct {
 	// always produce sums too long to fit into a Kubernetes name. Because of this,
 	// gets, updates, and deletes are _always_ checked for collisions.
 	hash func() hash.Hash
-
+	
 	// API version of the oidc resources. For example "oidc.coreos.com". This is
 	// currently not configurable, but could be in the future.
 	apiVersion string
@@ -53,7 +53,7 @@ type client struct {
 	// Different Kubernetes version requires to create CRD in certain API. It will be discovered automatically on
 	// storage opening.
 	crdAPIVersion string
-
+	
 	// This is called once the client's Close method is called to signal goroutines,
 	// such as the one creating third party resources, to stop.
 	cancel context.CancelFunc
@@ -95,7 +95,7 @@ func (cli *client) urlForWithParams(
 	if apiVersion == "v1" {
 		basePath = "api/"
 	}
-
+	
 	if name != "" && (len(name) > kubeResourceMaxLen || !kubeResourceNameRegex.MatchString(name)) {
 		// The actual name can be found in auth request or auth code objects and equals to the state value
 		return "", fmt.Errorf(
@@ -103,24 +103,24 @@ func (cli *client) urlForWithParams(
 			kubeResourceNameRegex.String(),
 			kubeResourceMaxLen)
 	}
-
+	
 	var p string
 	if namespace != "" {
 		p = path.Join(basePath, apiVersion, "namespaces", namespace, resource, name)
 	} else {
 		p = path.Join(basePath, apiVersion, resource, name)
 	}
-
+	
 	encodedParams := params.Encode()
 	paramsSuffix := ""
 	if len(encodedParams) > 0 {
 		paramsSuffix = "?" + encodedParams
 	}
-
+	
 	if strings.HasSuffix(cli.baseURL, "/") {
 		return cli.baseURL + p + paramsSuffix, nil
 	}
-
+	
 	return cli.baseURL + "/" + p + paramsSuffix, nil
 }
 
@@ -158,12 +158,12 @@ func checkHTTPErr(r *http.Response, validStatusCodes ...int) error {
 			return nil
 		}
 	}
-
+	
 	body, err := io.ReadAll(io.LimitReader(r.Body, 2<<15)) // 64 KiB
 	if err != nil {
 		return fmt.Errorf("read response body: %v", err)
 	}
-
+	
 	// Check this case after we read the body so the connection can be reused.
 	if r.StatusCode == http.StatusNotFound {
 		return storage.ErrNotFound
@@ -171,7 +171,7 @@ func checkHTTPErr(r *http.Response, validStatusCodes ...int) error {
 	if r.Request.Method == http.MethodPost && r.StatusCode == http.StatusConflict {
 		return storage.ErrAlreadyExists
 	}
-
+	
 	var url, method string
 	if r.Request != nil {
 		method = r.Request.Method
@@ -234,7 +234,7 @@ func (cli *client) postResource(apiVersion, namespace, resource string, v interf
 	if err != nil {
 		return fmt.Errorf("marshal object: %v", err)
 	}
-
+	
 	url, err := cli.urlFor(apiVersion, namespace, resource, "")
 	if err != nil {
 		return err
@@ -249,32 +249,32 @@ func (cli *client) postResource(apiVersion, namespace, resource string, v interf
 
 func (cli *client) detectKubernetesVersion() error {
 	var version struct{ GitVersion string }
-
+	
 	url := cli.baseURL + "/version"
 	resp, err := cli.client.Get(url)
 	if err != nil {
 		return err
 	}
-
+	
 	defer closeResp(resp)
 	if err := checkHTTPErr(resp, http.StatusOK); err != nil {
 		return err
 	}
-
+	
 	if err := json.NewDecoder(resp.Body).Decode(&version); err != nil {
 		return err
 	}
-
+	
 	clusterVersion, err := semver.NewVersion(version.GitVersion)
 	if err != nil {
 		cli.logger.Warnf("cannot detect Kubernetes version (%s): %v", clusterVersion, err)
 		return nil
 	}
-
+	
 	if clusterVersion.LessThan(semver.MustParse("v1.16.0")) {
 		cli.crdAPIVersion = legacyCRDAPIVersion
 	}
-
+	
 	return nil
 }
 
@@ -320,25 +320,25 @@ func (cli *client) put(resource, name string, v interface{}) error {
 	if err != nil {
 		return fmt.Errorf("marshal object: %v", err)
 	}
-
+	
 	url, err := cli.urlFor(cli.apiVersion, cli.namespace, resource, name)
 	if err != nil {
 		return err
 	}
-
+	
 	req, err := http.NewRequest("PUT", url, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("create patch request: %v", err)
 	}
-
+	
 	req.Header.Set("Content-Length", strconv.Itoa(len(body)))
-
+	
 	resp, err := cli.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("patch request: %v", err)
 	}
 	defer closeResp(resp)
-
+	
 	return checkHTTPErr(resp, http.StatusOK)
 }
 
@@ -368,7 +368,7 @@ func newClient(cluster k8sapi.Cluster, user k8sapi.AuthInfo, namespace string, l
 		}
 		return os.ReadFile(file)
 	}
-
+	
 	if caData, err := data(cluster.CertificateAuthorityData, cluster.CertificateAuthority); err != nil {
 		return nil, err
 	} else if caData != nil {
@@ -377,7 +377,7 @@ func newClient(cluster k8sapi.Cluster, user k8sapi.AuthInfo, namespace string, l
 			return nil, fmt.Errorf("no certificate data found: %v", err)
 		}
 	}
-
+	
 	clientCert, err := data(user.ClientCertificateData, user.ClientCertificate)
 	if err != nil {
 		return nil, err
@@ -393,7 +393,7 @@ func newClient(cluster k8sapi.Cluster, user k8sapi.AuthInfo, namespace string, l
 		}
 		tlsConfig.Certificates = []tls.Certificate{cert}
 	}
-
+	
 	var t http.RoundTripper
 	httpTransport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
@@ -405,7 +405,7 @@ func newClient(cluster k8sapi.Cluster, user k8sapi.AuthInfo, namespace string, l
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 	}
-
+	
 	// Since we set a custom TLS client config we have to explicitly
 	// enable HTTP/2.
 	//
@@ -414,9 +414,9 @@ func newClient(cluster k8sapi.Cluster, user k8sapi.AuthInfo, namespace string, l
 		return nil, err
 	}
 	t = wrapRoundTripper(httpTransport, user, inCluster)
-
+	
 	apiVersion := "dex.coreos.com/v1"
-
+	
 	logger.Infof("kubernetes client apiVersion = %s", apiVersion)
 	return &client{
 		client: &http.Client{
@@ -438,13 +438,13 @@ func loadKubeConfig(kubeConfigPath string) (cluster k8sapi.Cluster, user k8sapi.
 		err = fmt.Errorf("read %s: %v", kubeConfigPath, err)
 		return
 	}
-
+	
 	var c k8sapi.Config
 	if err = yaml.Unmarshal(data, &c); err != nil {
 		err = fmt.Errorf("unmarshal %s: %v", kubeConfigPath, err)
 		return
 	}
-
+	
 	cluster, user, namespace, err = currentContext(&c)
 	if namespace == "" {
 		namespace = "default"
@@ -483,7 +483,7 @@ func namespaceFromFile(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
+	
 	return string(data), nil
 }
 
@@ -492,18 +492,18 @@ func getInClusterConfigNamespace(token, namespaceENV, namespacePath string) (str
 	if namespace != "" {
 		return namespace, nil
 	}
-
+	
 	namespace, err := namespaceFromServiceAccountJWT(token)
 	if err == nil {
 		return namespace, nil
 	}
-
+	
 	err = fmt.Errorf("inspect service account token: %v", err)
 	namespace, fileErr := namespaceFromFile(namespacePath)
 	if fileErr == nil {
 		return namespace, nil
 	}
-
+	
 	return "", fmt.Errorf("%v: trying to get namespace from file: %v", err, fileErr)
 }
 
@@ -513,12 +513,12 @@ func inClusterConfig() (k8sapi.Cluster, k8sapi.AuthInfo, string, error) {
 		serviceAccountTokenPath     = serviceAccountPath + "token"
 		serviceAccountCAPath        = serviceAccountPath + "ca.crt"
 		serviceAccountNamespacePath = serviceAccountPath + "namespace"
-
+		
 		kubernetesServiceHostENV  = "KUBERNETES_SERVICE_HOST"
 		kubernetesServicePortENV  = "KUBERNETES_SERVICE_PORT"
 		kubernetesPodNamespaceENV = "KUBERNETES_POD_NAMESPACE"
 	)
-
+	
 	host, port := os.Getenv(kubernetesServiceHostENV), os.Getenv(kubernetesServicePortENV)
 	if len(host) == 0 || len(port) == 0 {
 		return k8sapi.Cluster{}, k8sapi.AuthInfo{}, "", fmt.Errorf(
@@ -534,19 +534,19 @@ func inClusterConfig() (k8sapi.Cluster, k8sapi.AuthInfo, string, error) {
 		Server:               "https://" + host + ":" + port,
 		CertificateAuthority: serviceAccountCAPath,
 	}
-
+	
 	token, err := os.ReadFile(serviceAccountTokenPath)
 	if err != nil {
 		return cluster, k8sapi.AuthInfo{}, "", err
 	}
-
+	
 	user := k8sapi.AuthInfo{Token: string(token)}
-
+	
 	namespace, err := getInClusterConfigNamespace(user.Token, kubernetesPodNamespaceENV, serviceAccountNamespacePath)
 	if err != nil {
 		return cluster, user, "", err
 	}
-
+	
 	return cluster, user, namespace, nil
 }
 
@@ -569,7 +569,7 @@ func currentContext(config *k8sapi.Config) (cluster k8sapi.Cluster, user k8sapi.
 	if !ok {
 		return cluster, user, "", fmt.Errorf("no context named %q found", config.CurrentContext)
 	}
-
+	
 	cluster, ok = func() (k8sapi.Cluster, bool) {
 		for _, namedCluster := range config.Clusters {
 			if namedCluster.Name == k8sContext.Cluster {
@@ -581,7 +581,7 @@ func currentContext(config *k8sapi.Config) (cluster k8sapi.Cluster, user k8sapi.
 	if !ok {
 		return cluster, user, "", fmt.Errorf("no cluster named %q found", k8sContext.Cluster)
 	}
-
+	
 	user, ok = func() (k8sapi.AuthInfo, bool) {
 		for _, namedAuthInfo := range config.AuthInfos {
 			if namedAuthInfo.Name == k8sContext.AuthInfo {

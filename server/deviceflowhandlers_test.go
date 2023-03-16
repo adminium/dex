@@ -12,13 +12,13 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/storage"
 )
 
 func TestDeviceVerificationURI(t *testing.T) {
 	t0 := time.Now()
-
+	
 	now := func() time.Time { return t0 }
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -28,13 +28,13 @@ func TestDeviceVerificationURI(t *testing.T) {
 		c.Now = now
 	})
 	defer httpServer.Close()
-
+	
 	u, err := url.Parse(s.issuerURL.String())
 	if err != nil {
 		t.Fatalf("Could not parse issuer URL %v", err)
 	}
 	u.Path = path.Join(u.Path, "/device/auth/verify_code")
-
+	
 	uri := s.getDeviceVerificationURI()
 	if uri != u.Path {
 		t.Errorf("Invalid verification URI.  Expected %v got %v", u.Path, uri)
@@ -43,9 +43,9 @@ func TestDeviceVerificationURI(t *testing.T) {
 
 func TestHandleDeviceCode(t *testing.T) {
 	t0 := time.Now()
-
+	
 	now := func() time.Time { return t0 }
-
+	
 	tests := []struct {
 		testName               string
 		clientID               string
@@ -95,20 +95,20 @@ func TestHandleDeviceCode(t *testing.T) {
 		t.Run(tc.testName, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-
+			
 			// Setup a dex server.
 			httpServer, s := newTestServer(ctx, t, func(c *Config) {
 				c.Issuer += "/non-root-path"
 				c.Now = now
 			})
 			defer httpServer.Close()
-
+			
 			u, err := url.Parse(s.issuerURL.String())
 			if err != nil {
 				t.Fatalf("Could not parse issuer URL %v", err)
 			}
 			u.Path = path.Join(u.Path, "device/code")
-
+			
 			data := url.Values{}
 			data.Set("client_id", tc.clientID)
 			data.Set("code_challenge_method", tc.codeChallengeMethod)
@@ -117,17 +117,17 @@ func TestHandleDeviceCode(t *testing.T) {
 			}
 			req, _ := http.NewRequest(tc.requestType, u.String(), bytes.NewBufferString(data.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-
+			
 			rr := httptest.NewRecorder()
 			s.ServeHTTP(rr, req)
 			if rr.Code != tc.expectedResponseCode {
 				t.Errorf("Unexpected Response Type.  Expected %v got %v", tc.expectedResponseCode, rr.Code)
 			}
-
+			
 			if rr.Header().Get("content-type") != tc.expectedContentType {
 				t.Errorf("Unexpected Response Content Type.  Expected %v got %v", tc.expectedContentType, rr.Header().Get("content-type"))
 			}
-
+			
 			body, err := io.ReadAll(rr.Body)
 			if err != nil {
 				t.Errorf("Could read token response %v", err)
@@ -144,15 +144,15 @@ func TestHandleDeviceCode(t *testing.T) {
 
 func TestDeviceCallback(t *testing.T) {
 	t0 := time.Now()
-
+	
 	now := func() time.Time { return t0 }
-
+	
 	type formValues struct {
 		state string
 		code  string
 		error string
 	}
-
+	
 	// Base "Control" test values
 	baseFormValues := formValues{
 		state: "XXXX-XXXX",
@@ -185,7 +185,7 @@ func TestDeviceCallback(t *testing.T) {
 		LastRequestTime:     time.Time{},
 		PollIntervalSeconds: 0,
 	}
-
+	
 	tests := []struct {
 		testName               string
 		expectedResponseCode   int
@@ -358,26 +358,26 @@ func TestDeviceCallback(t *testing.T) {
 		t.Run(tc.testName, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-
+			
 			// Setup a dex server.
 			httpServer, s := newTestServer(ctx, t, func(c *Config) {
 				// c.Issuer = c.Issuer + "/non-root-path"
 				c.Now = now
 			})
 			defer httpServer.Close()
-
+			
 			if err := s.storage.CreateAuthCode(tc.testAuthCode); err != nil {
 				t.Fatalf("failed to create auth code: %v", err)
 			}
-
+			
 			if err := s.storage.CreateDeviceRequest(tc.testDeviceRequest); err != nil {
 				t.Fatalf("failed to create device request: %v", err)
 			}
-
+			
 			if err := s.storage.CreateDeviceToken(tc.testDeviceToken); err != nil {
 				t.Fatalf("failed to create device token: %v", err)
 			}
-
+			
 			client := storage.Client{
 				ID:           "testclient",
 				Secret:       "",
@@ -386,7 +386,7 @@ func TestDeviceCallback(t *testing.T) {
 			if err := s.storage.CreateClient(client); err != nil {
 				t.Fatalf("failed to create client: %v", err)
 			}
-
+			
 			u, err := url.Parse(s.issuerURL.String())
 			if err != nil {
 				t.Fatalf("Could not parse issuer URL %v", err)
@@ -399,13 +399,13 @@ func TestDeviceCallback(t *testing.T) {
 			u.RawQuery = q.Encode()
 			req, _ := http.NewRequest("GET", u.String(), nil)
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-
+			
 			rr := httptest.NewRecorder()
 			s.ServeHTTP(rr, req)
 			if rr.Code != tc.expectedResponseCode {
 				t.Errorf("%s: Unexpected Response Type.  Expected %v got %v", tc.testName, tc.expectedResponseCode, rr.Code)
 			}
-
+			
 			if len(tc.expectedServerResponse) > 0 {
 				result, _ := io.ReadAll(rr.Body)
 				if string(result) != tc.expectedServerResponse {
@@ -418,16 +418,16 @@ func TestDeviceCallback(t *testing.T) {
 
 func TestDeviceTokenResponse(t *testing.T) {
 	t0 := time.Now()
-
+	
 	now := func() time.Time { return t0 }
-
+	
 	// Base PKCE values
 	// base64-urlencoded, sha256 digest of code_verifier
 	codeChallenge := "L7ZqsT_zNwvrH8E7J0CqPHx1wgBaFiaE-fAZcKUUAbc"
 	codeChallengeMethod := "S256"
 	// "random" string between 43 & 128 ASCII characters
 	codeVerifier := "66114650f56cc45dee7ee03c49f048ddf9aa53cbf5b09985832fa4f790ff2604"
-
+	
 	baseDeviceRequest := storage.DeviceRequest{
 		UserCode:   "ABCD-WXYZ",
 		DeviceCode: "foo",
@@ -435,7 +435,7 @@ func TestDeviceTokenResponse(t *testing.T) {
 		Scopes:     []string{"openid", "profile", "offline_access"},
 		Expiry:     now().Add(5 * time.Minute),
 	}
-
+	
 	tests := []struct {
 		testName               string
 		testDeviceRequest      storage.DeviceRequest
@@ -652,28 +652,28 @@ func TestDeviceTokenResponse(t *testing.T) {
 		t.Run(tc.testName, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-
+			
 			// Setup a dex server.
 			httpServer, s := newTestServer(ctx, t, func(c *Config) {
 				c.Issuer += "/non-root-path"
 				c.Now = now
 			})
 			defer httpServer.Close()
-
+			
 			if err := s.storage.CreateDeviceRequest(tc.testDeviceRequest); err != nil {
 				t.Fatalf("Failed to store device token %v", err)
 			}
-
+			
 			if err := s.storage.CreateDeviceToken(tc.testDeviceToken); err != nil {
 				t.Fatalf("Failed to store device token %v", err)
 			}
-
+			
 			u, err := url.Parse(s.issuerURL.String())
 			if err != nil {
 				t.Fatalf("Could not parse issuer URL %v", err)
 			}
 			u.Path = path.Join(u.Path, "device/token")
-
+			
 			data := url.Values{}
 			grantType := grantTypeDeviceCode
 			if tc.testGrantType != "" {
@@ -686,13 +686,13 @@ func TestDeviceTokenResponse(t *testing.T) {
 			}
 			req, _ := http.NewRequest("POST", u.String(), bytes.NewBufferString(data.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-
+			
 			rr := httptest.NewRecorder()
 			s.ServeHTTP(rr, req)
 			if rr.Code != tc.expectedResponseCode {
 				t.Errorf("Unexpected Response Type.  Expected %v got %v", tc.expectedResponseCode, rr.Code)
 			}
-
+			
 			body, err := io.ReadAll(rr.Body)
 			if err != nil {
 				t.Errorf("Could read token response %v", err)
@@ -719,9 +719,9 @@ func expectJSONErrorResponse(testCase string, body []byte, expectedError string,
 
 func TestVerifyCodeResponse(t *testing.T) {
 	t0 := time.Now()
-
+	
 	now := func() time.Time { return t0 }
-
+	
 	tests := []struct {
 		testName             string
 		testDeviceRequest    storage.DeviceRequest
@@ -786,41 +786,41 @@ func TestVerifyCodeResponse(t *testing.T) {
 		t.Run(tc.testName, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-
+			
 			// Setup a dex server.
 			httpServer, s := newTestServer(ctx, t, func(c *Config) {
 				c.Issuer += "/non-root-path"
 				c.Now = now
 			})
 			defer httpServer.Close()
-
+			
 			if err := s.storage.CreateDeviceRequest(tc.testDeviceRequest); err != nil {
 				t.Fatalf("Failed to store device token %v", err)
 			}
-
+			
 			u, err := url.Parse(s.issuerURL.String())
 			if err != nil {
 				t.Fatalf("Could not parse issuer URL %v", err)
 			}
-
+			
 			u.Path = path.Join(u.Path, "device/auth/verify_code")
 			data := url.Values{}
 			data.Set("user_code", tc.userCode)
 			req, _ := http.NewRequest("POST", u.String(), bytes.NewBufferString(data.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-
+			
 			rr := httptest.NewRecorder()
 			s.ServeHTTP(rr, req)
 			if rr.Code != tc.expectedResponseCode {
 				t.Errorf("Unexpected Response Type.  Expected %v got %v", tc.expectedResponseCode, rr.Code)
 			}
-
+			
 			u, err = url.Parse(s.issuerURL.String())
 			if err != nil {
 				t.Errorf("Could not parse issuer URL %v", err)
 			}
 			u.Path = path.Join(u.Path, tc.expectedRedirectPath)
-
+			
 			location := rr.Header().Get("Location")
 			if rr.Code == http.StatusFound && !strings.HasPrefix(location, u.Path) {
 				t.Errorf("Invalid Redirect.  Expected %v got %v", u.Path, location)

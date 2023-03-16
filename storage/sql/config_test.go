@@ -7,18 +7,18 @@ import (
 	"strconv"
 	"testing"
 	"time"
-
+	
 	"github.com/sirupsen/logrus"
-
-	"github.com/dexidp/dex/pkg/log"
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/conformance"
+	
+	"github.com/adminium/dex/pkg/log"
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/conformance"
 )
 
 func withTimeout(t time.Duration, f func()) {
 	c := make(chan struct{})
 	defer close(c)
-
+	
 	go func() {
 		select {
 		case <-c:
@@ -29,7 +29,7 @@ func withTimeout(t time.Duration, f func()) {
 			panic("test took too long")
 		}
 	}()
-
+	
 	f()
 }
 
@@ -38,7 +38,7 @@ func cleanDB(c *conn) error {
 		"client", "auth_request", "auth_code",
 		"refresh_token", "keys", "password",
 	}
-
+	
 	for _, tbl := range tables {
 		_, err := c.Exec("delete from " + tbl)
 		if err != nil {
@@ -64,7 +64,7 @@ func testDB(t *testing.T, o opener, withTransactions bool) {
 		fmt.Fprintln(os.Stdout, i)
 		t.Fatal(i)
 	}
-
+	
 	newStorage := func() storage.Storage {
 		conn, err := o.open(logger)
 		if err != nil {
@@ -201,12 +201,12 @@ func TestCreateDataSourceName(t *testing.T) {
 			expected: `connect_timeout=0 host='coreos.com' user='some\'user\\slashed' password='some\'password!' sslmode='verify-full'`,
 		},
 	}
-
+	
 	var actual string
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
 			actual = testCase.input.createDataSourceName()
-
+			
 			if actual != testCase.expected {
 				t.Fatalf("%s != %s", actual, testCase.expected)
 			}
@@ -219,17 +219,17 @@ func TestPostgres(t *testing.T) {
 	if host == "" {
 		t.Skipf("test environment variable %q not set, skipping", testPostgresEnv)
 	}
-
+	
 	port := uint64(5432)
 	if rawPort := os.Getenv("DEX_POSTGRES_PORT"); rawPort != "" {
 		var err error
-
+		
 		port, err = strconv.ParseUint(rawPort, 10, 32)
 		if err != nil {
 			t.Fatalf("invalid postgres port %q: %s", rawPort, err)
 		}
 	}
-
+	
 	p := &Postgres{
 		NetworkDB: NetworkDB{
 			Database:          getenv("DEX_POSTGRES_DATABASE", "postgres"),
@@ -253,17 +253,17 @@ func TestMySQL(t *testing.T) {
 	if host == "" {
 		t.Skipf("test environment variable %q not set, skipping", testMySQLEnv)
 	}
-
+	
 	port := uint64(3306)
 	if rawPort := os.Getenv("DEX_MYSQL_PORT"); rawPort != "" {
 		var err error
-
+		
 		port, err = strconv.ParseUint(rawPort, 10, 32)
 		if err != nil {
 			t.Fatalf("invalid mysql port %q: %s", rawPort, err)
 		}
 	}
-
+	
 	s := &MySQL{
 		NetworkDB: NetworkDB{
 			Database:          getenv("DEX_MYSQL_DATABASE", "mysql"),

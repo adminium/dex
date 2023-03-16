@@ -4,12 +4,12 @@ import (
 	"os"
 	"strconv"
 	"testing"
-
+	
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/conformance"
+	
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/conformance"
 )
 
 const (
@@ -44,7 +44,7 @@ func newMySQLStorage(host string, port uint64) storage.Storage {
 		Formatter: &logrus.TextFormatter{DisableColors: true},
 		Level:     logrus.DebugLevel,
 	}
-
+	
 	cfg := mysqlTestConfig(host, port)
 	s, err := cfg.Open(logger)
 	if err != nil {
@@ -58,15 +58,15 @@ func TestMySQL(t *testing.T) {
 	if host == "" {
 		t.Skipf("test environment variable %s not set, skipping", MySQLEntHostEnv)
 	}
-
+	
 	port := uint64(3306)
 	if rawPort := os.Getenv(MySQLEntPortEnv); rawPort != "" {
 		var err error
-
+		
 		port, err = strconv.ParseUint(rawPort, 10, 32)
 		require.NoError(t, err, "invalid mysql port %q: %s", rawPort, err)
 	}
-
+	
 	newStorage := func() storage.Storage {
 		return newMySQLStorage(host, port)
 	}
@@ -141,7 +141,7 @@ func TestMySQLDSN(t *testing.T) {
 			desiredDSN: "/?checkConnLiveness=false&parseTime=true&tls=false&maxAllowedPacket=0&innodb_lock_wait_timeout=1",
 		},
 	}
-
+	
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			require.Equal(t, tt.desiredDSN, tt.cfg.dsn(mysqlSSLFalse))

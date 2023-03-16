@@ -15,11 +15,11 @@ import (
 	"strings"
 	"testing"
 	"time"
-
+	
 	"github.com/sirupsen/logrus"
 	"gopkg.in/square/go-jose.v2"
-
-	"github.com/dexidp/dex/connector"
+	
+	"github.com/adminium/dex/connector"
 )
 
 func TestKnownBrokenAuthHeaderProvider(t *testing.T) {
@@ -33,7 +33,7 @@ func TestKnownBrokenAuthHeaderProvider(t *testing.T) {
 		{"https://dev.oktaaccounts.com", false},
 		{"https://accounts.google.com", false},
 	}
-
+	
 	for _, tc := range tests {
 		got := knownBrokenAuthHeaderProvider(tc.issuerURL)
 		if got != tc.expect {
@@ -44,7 +44,7 @@ func TestKnownBrokenAuthHeaderProvider(t *testing.T) {
 
 func TestHandleCallback(t *testing.T) {
 	t.Helper()
-
+	
 	tests := []struct {
 		name                      string
 		userIDKey                 string
@@ -288,7 +288,7 @@ func TestHandleCallback(t *testing.T) {
 			},
 		},
 	}
-
+	
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			idTokenDesired := true
@@ -297,7 +297,7 @@ func TestHandleCallback(t *testing.T) {
 				t.Fatal("failed to setup test server", err)
 			}
 			defer testServer.Close()
-
+			
 			var scopes []string
 			if len(tc.scopes) > 0 {
 				scopes = tc.scopes
@@ -322,22 +322,22 @@ func TestHandleCallback(t *testing.T) {
 			config.ClaimMapping.PreferredUsernameKey = tc.preferredUsernameKey
 			config.ClaimMapping.EmailKey = tc.emailKey
 			config.ClaimMapping.GroupsKey = tc.groupsKey
-
+			
 			conn, err := newConnector(config)
 			if err != nil {
 				t.Fatal("failed to create new connector", err)
 			}
-
+			
 			req, err := newRequestWithAuthCode(testServer.URL, "someCode")
 			if err != nil {
 				t.Fatal("failed to create request", err)
 			}
-
+			
 			identity, err := conn.HandleCallback(connector.Scopes{Groups: true}, req)
 			if err != nil {
 				t.Fatal("handle callback failed", err)
 			}
-
+			
 			expectEquals(t, identity.UserID, tc.expectUserID)
 			expectEquals(t, identity.Username, tc.expectUserName)
 			expectEquals(t, identity.PreferredUsername, tc.expectPreferredUsername)
@@ -350,7 +350,7 @@ func TestHandleCallback(t *testing.T) {
 
 func TestRefresh(t *testing.T) {
 	t.Helper()
-
+	
 	tests := []struct {
 		name           string
 		expectUserID   string
@@ -386,7 +386,7 @@ func TestRefresh(t *testing.T) {
 				t.Fatal("failed to setup test server", err)
 			}
 			defer testServer.Close()
-
+			
 			scopes := []string{"openid", "offline_access"}
 			serverURL := testServer.URL
 			config := Config{
@@ -397,31 +397,31 @@ func TestRefresh(t *testing.T) {
 				RedirectURI:  fmt.Sprintf("%s/callback", serverURL),
 				GetUserInfo:  true,
 			}
-
+			
 			conn, err := newConnector(config)
 			if err != nil {
 				t.Fatal("failed to create new connector", err)
 			}
-
+			
 			req, err := newRequestWithAuthCode(testServer.URL, "someCode")
 			if err != nil {
 				t.Fatal("failed to create request", err)
 			}
-
+			
 			refreshTokenStr := "{\"RefreshToken\":\"asdf\"}"
 			refreshToken := []byte(refreshTokenStr)
-
+			
 			identity := connector.Identity{
 				UserID:        tc.expectUserID,
 				Username:      tc.expectUserName,
 				ConnectorData: refreshToken,
 			}
-
+			
 			refreshIdentity, err := conn.Refresh(req.Context(), connector.Scopes{OfflineAccess: true}, identity)
 			if err != nil {
 				t.Fatal("Refresh failed", err)
 			}
-
+			
 			expectEquals(t, refreshIdentity.UserID, tc.expectUserID)
 			expectEquals(t, refreshIdentity.Username, tc.expectUserName)
 		})
@@ -433,15 +433,15 @@ func setupServer(tok map[string]interface{}, idTokenDesired bool) (*httptest.Ser
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate rsa key: %v", err)
 	}
-
+	
 	jwk := jose.JSONWebKey{
 		Key:       key,
 		KeyID:     "keyId",
 		Algorithm: "RSA",
 	}
-
+	
 	mux := http.NewServeMux()
-
+	
 	mux.HandleFunc("/keys", func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(&map[string]interface{}{
 			"keys": []map[string]interface{}{{
@@ -453,7 +453,7 @@ func setupServer(tok map[string]interface{}, idTokenDesired bool) (*httptest.Ser
 			}},
 		})
 	})
-
+	
 	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
 		url := fmt.Sprintf("http://%s", r.Host)
 		tok["iss"] = url
@@ -463,7 +463,7 @@ func setupServer(tok map[string]interface{}, idTokenDesired bool) (*httptest.Ser
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 		}
-
+		
 		w.Header().Add("Content-Type", "application/json")
 		if idTokenDesired {
 			json.NewEncoder(w).Encode(&map[string]string{
@@ -478,15 +478,15 @@ func setupServer(tok map[string]interface{}, idTokenDesired bool) (*httptest.Ser
 			})
 		}
 	})
-
+	
 	mux.HandleFunc("/userinfo", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(tok)
 	})
-
+	
 	mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
 		url := fmt.Sprintf("http://%s", r.Host)
-
+		
 		json.NewEncoder(w).Encode(&map[string]string{
 			"issuer":                 url,
 			"token_endpoint":         fmt.Sprintf("%s/token", url),
@@ -495,7 +495,7 @@ func setupServer(tok map[string]interface{}, idTokenDesired bool) (*httptest.Ser
 			"jwks_uri":               fmt.Sprintf("%s/keys", url),
 		})
 	})
-
+	
 	return httptest.NewServer(mux), nil
 }
 
@@ -504,17 +504,17 @@ func newToken(key *jose.JSONWebKey, claims map[string]interface{}) (string, erro
 		Key:       key,
 		Algorithm: jose.RS256,
 	}
-
+	
 	signer, err := jose.NewSigner(signingKey, &jose.SignerOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to create new signer: %v", err)
 	}
-
+	
 	payload, err := json.Marshal(claims)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal claims: %v", err)
 	}
-
+	
 	signature, err := signer.Sign(payload)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign: %v", err)
@@ -528,12 +528,12 @@ func newConnector(config Config) (*oidcConnector, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to open: %v", err)
 	}
-
+	
 	oidcConn, ok := conn.(*oidcConnector)
 	if !ok {
 		return nil, errors.New("failed to convert to oidcConnector")
 	}
-
+	
 	return oidcConn, nil
 }
 
@@ -542,11 +542,11 @@ func newRequestWithAuthCode(serverURL string, code string) (*http.Request, error
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
-
+	
 	values := req.URL.Query()
 	values.Add("code", code)
 	req.URL.RawQuery = values.Encode()
-
+	
 	return req, nil
 }
 

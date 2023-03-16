@@ -9,12 +9,12 @@ import (
 	"sort"
 	"testing"
 	"time"
-
+	
 	"github.com/kylelemons/godebug/pretty"
 	dsig "github.com/russellhaering/goxmldsig"
 	"github.com/sirupsen/logrus"
-
-	"github.com/dexidp/dex/connector"
+	
+	"github.com/adminium/dex/connector"
 )
 
 // responseTest maps a SAML 2.0 response object to a set of expected values.
@@ -40,20 +40,20 @@ type responseTest struct {
 	// CA file and XML file of the response.
 	caFile   string
 	respFile string
-
+	
 	// Values that should be used to validate the signature.
 	now          string
 	inResponseTo string
 	redirectURI  string
 	entityIssuer string
-
+	
 	// Attribute customization.
 	usernameAttr  string
 	emailAttr     string
 	groupsAttr    string
 	allowedGroups []string
 	filterGroups  bool
-
+	
 	// Expected outcome of the test.
 	wantErr   bool
 	wantIdent connector.Identity
@@ -419,7 +419,7 @@ func (r responseTest) run(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse test time: %v", err)
 	}
-
+	
 	conn, err := c.openConnector(logrus.New())
 	if err != nil {
 		t.Fatal(err)
@@ -430,7 +430,7 @@ func (r responseTest) run(t *testing.T) {
 		t.Fatal(err)
 	}
 	samlResp := base64.StdEncoding.EncodeToString(resp)
-
+	
 	scopes := connector.Scopes{
 		OfflineAccess: false,
 		Groups:        true,
@@ -442,7 +442,7 @@ func (r responseTest) run(t *testing.T) {
 		}
 		return
 	}
-
+	
 	if r.wantErr {
 		t.Fatalf("wanted error")
 	}
@@ -463,12 +463,12 @@ func TestConfigCAData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	
 	// copy helper, avoid messing with the byte slice among different cases
 	c := func(bs []byte) []byte {
 		return append([]byte(nil), bs...)
 	}
-
+	
 	tests := []struct {
 		name    string
 		caData  []byte
@@ -518,7 +518,7 @@ func TestConfigCAData(t *testing.T) {
 			wantErr: true,
 		},
 	}
-
+	
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			c := Config{
@@ -547,14 +547,14 @@ func runVerify(t *testing.T, ca string, resp string, shouldSucceed bool) {
 		t.Fatal(err)
 	}
 	s := certStore{[]*x509.Certificate{cert}}
-
+	
 	validator := dsig.NewDefaultValidationContext(s)
-
+	
 	data, err := os.ReadFile(resp)
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	
 	if _, _, err := verifyResponseSig(validator, data); err != nil {
 		if shouldSucceed {
 			t.Fatal(err)

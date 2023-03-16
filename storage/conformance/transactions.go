@@ -3,10 +3,10 @@ package conformance
 import (
 	"testing"
 	"time"
-
+	
 	"golang.org/x/crypto/bcrypt"
-
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/storage"
 )
 
 // RunTransactionTests runs a test suite aimed a verifying the transaction
@@ -33,13 +33,13 @@ func testClientConcurrentUpdate(t *testing.T, s storage.Storage) {
 		Name:         "dex client",
 		LogoURL:      "https://goo.gl/JIyzIC",
 	}
-
+	
 	if err := s.CreateClient(c); err != nil {
 		t.Fatalf("create client: %v", err)
 	}
-
+	
 	var err1, err2 error
-
+	
 	err1 = s.UpdateClient(c.ID, func(old storage.Client) (storage.Client, error) {
 		old.Secret = "new secret 1"
 		err2 = s.UpdateClient(c.ID, func(old storage.Client) (storage.Client, error) {
@@ -48,7 +48,7 @@ func testClientConcurrentUpdate(t *testing.T, s storage.Storage) {
 		})
 		return old, nil
 	})
-
+	
 	if (err1 == nil) == (err2 == nil) {
 		t.Errorf("update client:\nupdate1: %v\nupdate2: %v\n", err1, err2)
 	}
@@ -77,13 +77,13 @@ func testAuthRequestConcurrentUpdate(t *testing.T, s storage.Storage) {
 		},
 		HMACKey: []byte("hmac_key"),
 	}
-
+	
 	if err := s.CreateAuthRequest(a); err != nil {
 		t.Fatalf("failed creating auth request: %v", err)
 	}
-
+	
 	var err1, err2 error
-
+	
 	err1 = s.UpdateAuthRequest(a.ID, func(old storage.AuthRequest) (storage.AuthRequest, error) {
 		old.State = "state 1"
 		err2 = s.UpdateAuthRequest(a.ID, func(old storage.AuthRequest) (storage.AuthRequest, error) {
@@ -92,7 +92,7 @@ func testAuthRequestConcurrentUpdate(t *testing.T, s storage.Storage) {
 		})
 		return old, nil
 	})
-
+	
 	if (err1 == nil) == (err2 == nil) {
 		t.Errorf("update auth request:\nupdate1: %v\nupdate2: %v\n", err1, err2)
 	}
@@ -104,7 +104,7 @@ func testPasswordConcurrentUpdate(t *testing.T, s storage.Storage) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	
 	password := storage.Password{
 		Email:    "jane@example.com",
 		Hash:     passwordHash,
@@ -114,9 +114,9 @@ func testPasswordConcurrentUpdate(t *testing.T, s storage.Storage) {
 	if err := s.CreatePassword(password); err != nil {
 		t.Fatalf("create password token: %v", err)
 	}
-
+	
 	var err1, err2 error
-
+	
 	err1 = s.UpdatePassword(password.Email, func(old storage.Password) (storage.Password, error) {
 		old.Username = "user 1"
 		err2 = s.UpdatePassword(password.Email, func(old storage.Password) (storage.Password, error) {
@@ -125,7 +125,7 @@ func testPasswordConcurrentUpdate(t *testing.T, s storage.Storage) {
 		})
 		return old, nil
 	})
-
+	
 	if (err1 == nil) == (err2 == nil) {
 		t.Errorf("update password: concurrent updates both returned no error")
 	}
@@ -140,7 +140,7 @@ func testKeysConcurrentUpdate(t *testing.T, s storage.Storage) {
 			SigningKeyPub: jsonWebKeys[i].Public,
 			NextRotation:  n,
 		}
-
+		
 		keys2 := storage.Keys{
 			SigningKey:    jsonWebKeys[2].Private,
 			SigningKeyPub: jsonWebKeys[2].Public,
@@ -156,16 +156,16 @@ func testKeysConcurrentUpdate(t *testing.T, s storage.Storage) {
 				},
 			},
 		}
-
+		
 		var err1, err2 error
-
+		
 		err1 = s.UpdateKeys(func(old storage.Keys) (storage.Keys, error) {
 			err2 = s.UpdateKeys(func(old storage.Keys) (storage.Keys, error) {
 				return keys1, nil
 			})
 			return keys2, nil
 		})
-
+		
 		if (err1 == nil) == (err2 == nil) {
 			t.Errorf("update keys: concurrent updates both returned no error")
 		}

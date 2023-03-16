@@ -10,14 +10,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
+	
 	entSQL "entgo.io/ent/dialect/sql"
 	_ "github.com/lib/pq" // Register postgres driver.
-
-	"github.com/dexidp/dex/pkg/log"
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/ent/client"
-	"github.com/dexidp/dex/storage/ent/db"
+	
+	"github.com/adminium/dex/pkg/log"
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/ent/client"
+	"github.com/adminium/dex/storage/ent/db"
 )
 
 //nolint
@@ -32,7 +32,7 @@ const (
 // Postgres options for creating an SQL db.
 type Postgres struct {
 	NetworkDB
-
+	
 	SSL SSL `json:"ssl"`
 }
 
@@ -43,7 +43,7 @@ func (p *Postgres) Open(logger log.Logger) (storage.Storage, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	
 	databaseClient := client.NewDatabase(
 		client.WithClient(db.NewClient(db.Driver(drv))),
 		client.WithHasher(sha256.New),
@@ -53,11 +53,11 @@ func (p *Postgres) Open(logger log.Logger) (storage.Storage, error) {
 		// See: https://www.postgresql.org/docs/9.3/static/sql-set-transaction.html
 		client.WithTxIsolationLevel(sql.LevelSerializable),
 	)
-
+	
 	if err := databaseClient.Schema().Create(context.TODO()); err != nil {
 		return nil, err
 	}
-
+	
 	return databaseClient, nil
 }
 
@@ -66,24 +66,24 @@ func (p *Postgres) driver() (*entSQL.Driver, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	
 	// set database/sql tunables if configured
 	if p.ConnMaxLifetime != 0 {
 		drv.DB().SetConnMaxLifetime(time.Duration(p.ConnMaxLifetime) * time.Second)
 	}
-
+	
 	if p.MaxIdleConns == 0 {
 		drv.DB().SetMaxIdleConns(5)
 	} else {
 		drv.DB().SetMaxIdleConns(p.MaxIdleConns)
 	}
-
+	
 	if p.MaxOpenConns == 0 {
 		drv.DB().SetMaxOpenConns(5)
 	} else {
 		drv.DB().SetMaxOpenConns(p.MaxOpenConns)
 	}
-
+	
 	return drv, nil
 }
 
@@ -97,53 +97,53 @@ func (p *Postgres) dsn() string {
 			port = strconv.Itoa(int(p.Port))
 		}
 	}
-
+	
 	var parameters []string
 	addParam := func(key, val string) {
 		parameters = append(parameters, fmt.Sprintf("%s=%s", key, val))
 	}
-
+	
 	addParam("connect_timeout", strconv.Itoa(p.ConnectionTimeout))
-
+	
 	if host != "" {
 		addParam("host", dataSourceStr(host))
 	}
-
+	
 	if port != "" {
 		addParam("port", port)
 	}
-
+	
 	if p.User != "" {
 		addParam("user", dataSourceStr(p.User))
 	}
-
+	
 	if p.Password != "" {
 		addParam("password", dataSourceStr(p.Password))
 	}
-
+	
 	if p.Database != "" {
 		addParam("dbname", dataSourceStr(p.Database))
 	}
-
+	
 	if p.SSL.Mode == "" {
 		// Assume the strictest mode if unspecified.
 		addParam("sslmode", dataSourceStr(pgSSLVerifyFull))
 	} else {
 		addParam("sslmode", dataSourceStr(p.SSL.Mode))
 	}
-
+	
 	if p.SSL.CAFile != "" {
 		addParam("sslrootcert", dataSourceStr(p.SSL.CAFile))
 	}
-
+	
 	if p.SSL.CertFile != "" {
 		addParam("sslcert", dataSourceStr(p.SSL.CertFile))
 	}
-
+	
 	if p.SSL.KeyFile != "" {
 		addParam("sslkey", dataSourceStr(p.SSL.KeyFile))
 	}
-
+	
 	return strings.Join(parameters, " ")
 }
 

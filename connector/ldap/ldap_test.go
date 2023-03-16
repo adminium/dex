@@ -6,11 +6,11 @@ import (
 	"io"
 	"os"
 	"testing"
-
+	
 	"github.com/kylelemons/godebug/pretty"
 	"github.com/sirupsen/logrus"
-
-	"github.com/dexidp/dex/connector"
+	
+	"github.com/adminium/dex/connector"
 )
 
 // connectionMethod indicates how the test should connect to the LDAP server.
@@ -27,13 +27,13 @@ const (
 type subtest struct {
 	// Name of the sub-test.
 	name string
-
+	
 	// Password credentials, and if the connector should request
 	// groups as well.
 	username string
 	password string
 	groups   bool
-
+	
 	// Expected result of the login.
 	wantErr   bool
 	wantBadPW bool
@@ -47,7 +47,7 @@ func TestQuery(t *testing.T) {
 	c.UserSearch.EmailAttr = "mail"
 	c.UserSearch.IDAttr = "DN"
 	c.UserSearch.Username = "cn"
-
+	
 	tests := []subtest{
 		{
 			name:     "validpassword",
@@ -84,7 +84,7 @@ func TestQuery(t *testing.T) {
 			wantBadPW: true, // Want invalid password, not a query error.
 		},
 	}
-
+	
 	runTests(t, connectLDAP, c, tests)
 }
 
@@ -95,7 +95,7 @@ func TestQueryWithEmailSuffix(t *testing.T) {
 	c.UserSearch.EmailSuffix = "test.example.com"
 	c.UserSearch.IDAttr = "DN"
 	c.UserSearch.Username = "cn"
-
+	
 	tests := []subtest{
 		{
 			name:     "ignoremailattr",
@@ -120,7 +120,7 @@ func TestQueryWithEmailSuffix(t *testing.T) {
 			},
 		},
 	}
-
+	
 	runTests(t, connectLDAP, c, tests)
 }
 
@@ -132,7 +132,7 @@ func TestUserFilter(t *testing.T) {
 	c.UserSearch.IDAttr = "DN"
 	c.UserSearch.Username = "cn"
 	c.UserSearch.Filter = "(ou:dn:=Seattle)"
-
+	
 	tests := []subtest{
 		{
 			name:     "validpassword",
@@ -169,7 +169,7 @@ func TestUserFilter(t *testing.T) {
 			wantBadPW: true, // Want invalid password, not a query error.
 		},
 	}
-
+	
 	runTests(t, connectLDAP, c, tests)
 }
 
@@ -188,7 +188,7 @@ func TestGroupQuery(t *testing.T) {
 		},
 	}
 	c.GroupSearch.NameAttr = "cn"
-
+	
 	tests := []subtest{
 		{
 			name:     "validpassword",
@@ -217,7 +217,7 @@ func TestGroupQuery(t *testing.T) {
 			},
 		},
 	}
-
+	
 	runTests(t, connectLDAP, c, tests)
 }
 
@@ -283,7 +283,7 @@ func TestGroupFilter(t *testing.T) {
 	}
 	c.GroupSearch.NameAttr = "cn"
 	c.GroupSearch.Filter = "(ou:dn:=Seattle)" // ignore other groups
-
+	
 	tests := []subtest{
 		{
 			name:     "validpassword",
@@ -312,7 +312,7 @@ func TestGroupFilter(t *testing.T) {
 			},
 		},
 	}
-
+	
 	runTests(t, connectLDAP, c, tests)
 }
 
@@ -336,7 +336,7 @@ func TestGroupToUserMatchers(t *testing.T) {
 	}
 	c.GroupSearch.NameAttr = "cn"
 	c.GroupSearch.Filter = "(|(objectClass=posixGroup)(objectClass=groupOfNames))" // search all group types
-
+	
 	tests := []subtest{
 		{
 			name:     "validpassword",
@@ -365,7 +365,7 @@ func TestGroupToUserMatchers(t *testing.T) {
 			},
 		},
 	}
-
+	
 	runTests(t, connectLDAP, c, tests)
 }
 
@@ -384,7 +384,7 @@ func TestDeprecatedGroupToUserMatcher(t *testing.T) {
 	c.GroupSearch.GroupAttr = "member"
 	c.GroupSearch.NameAttr = "cn"
 	c.GroupSearch.Filter = "(ou:dn:=Seattle)" // ignore other groups
-
+	
 	tests := []subtest{
 		{
 			name:     "validpassword",
@@ -413,7 +413,7 @@ func TestDeprecatedGroupToUserMatcher(t *testing.T) {
 			},
 		},
 	}
-
+	
 	runTests(t, connectLDAP, c, tests)
 }
 
@@ -424,7 +424,7 @@ func TestStartTLS(t *testing.T) {
 	c.UserSearch.EmailAttr = "mail"
 	c.UserSearch.IDAttr = "DN"
 	c.UserSearch.Username = "cn"
-
+	
 	tests := []subtest{
 		{
 			name:     "validpassword",
@@ -448,7 +448,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 	c.UserSearch.EmailAttr = "mail"
 	c.UserSearch.IDAttr = "DN"
 	c.UserSearch.Username = "cn"
-
+	
 	tests := []subtest{
 		{
 			name:     "validpassword",
@@ -472,7 +472,7 @@ func TestLDAPS(t *testing.T) {
 	c.UserSearch.EmailAttr = "mail"
 	c.UserSearch.IDAttr = "DN"
 	c.UserSearch.Username = "cn"
-
+	
 	tests := []subtest{
 		{
 			name:     "validpassword",
@@ -503,7 +503,7 @@ func TestUsernamePrompt(t *testing.T) {
 			expected: "Email address",
 		},
 	}
-
+	
 	for n, d := range tests {
 		t.Run(n, func(t *testing.T) {
 			conn := &ldapConnector{Config: d.config}
@@ -530,10 +530,10 @@ func runTests(t *testing.T, connMethod connectionMethod, config *Config, tests [
 	if ldapHost == "" {
 		t.Skipf(`test environment variable "DEX_LDAP_HOST" not set, skipping`)
 	}
-
+	
 	// Shallow copy.
 	c := *config
-
+	
 	// We need to configure host parameters but don't want to overwrite user or
 	// group search configuration.
 	switch connMethod {
@@ -551,22 +551,22 @@ func runTests(t *testing.T, connMethod connectionMethod, config *Config, tests [
 		c.Host = fmt.Sprintf("%s:%s", ldapHost, getenv("DEX_LDAP_PORT", "389"))
 		c.InsecureNoSSL = true
 	}
-
+	
 	c.BindDN = "cn=admin,dc=example,dc=org"
 	c.BindPW = "admin"
-
+	
 	l := &logrus.Logger{Out: io.Discard, Formatter: &logrus.TextFormatter{}}
-
+	
 	conn, err := c.openConnector(l)
 	if err != nil {
 		t.Errorf("open connector: %v", err)
 	}
-
+	
 	for _, test := range tests {
 		if test.name == "" {
 			t.Fatal("go a subtest with no name")
 		}
-
+		
 		// Run the subtest.
 		t.Run(test.name, func(t *testing.T) {
 			s := connector.Scopes{OfflineAccess: true, Groups: test.groups}
@@ -580,34 +580,34 @@ func runTests(t *testing.T, connMethod connectionMethod, config *Config, tests [
 			if test.wantErr {
 				t.Fatalf("wanted query to fail")
 			}
-
+			
 			if !validPW {
 				if !test.wantBadPW {
 					t.Fatalf("invalid password: %v", err)
 				}
 				return
 			}
-
+			
 			if test.wantBadPW {
 				t.Fatalf("wanted invalid password")
 			}
 			got := ident
 			got.ConnectorData = nil
-
+			
 			if diff := pretty.Compare(test.want, got); diff != "" {
 				t.Error(diff)
 				return
 			}
-
+			
 			// Verify that refresh tokens work.
 			ident, err = conn.Refresh(context.Background(), s, ident)
 			if err != nil {
 				t.Errorf("refresh failed: %v", err)
 			}
-
+			
 			got = ident
 			got.ConnectorData = nil
-
+			
 			if diff := pretty.Compare(test.want, got); diff != "" {
 				t.Errorf("after refresh: %s", diff)
 			}

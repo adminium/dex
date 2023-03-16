@@ -3,9 +3,9 @@ package client
 import (
 	"encoding/json"
 	"strings"
-
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/ent/db"
+	
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/ent/db"
 )
 
 const keysRowID = "keys"
@@ -101,7 +101,7 @@ func toStorageOfflineSession(o *db.OfflineSession) storage.OfflineSessions {
 		ConnID:        o.ConnID,
 		ConnectorData: *o.ConnectorData,
 	}
-
+	
 	if o.Refresh != nil {
 		if err := json.Unmarshal(o.Refresh, &s.Refresh); err != nil {
 			// Correctness of json structure if guaranteed on uploading

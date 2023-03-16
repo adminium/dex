@@ -8,18 +8,18 @@ import (
 	"strings"
 	"testing"
 	"time"
-
+	
 	"github.com/sirupsen/logrus"
 	clientv3 "go.etcd.io/etcd/client/v3"
-
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/conformance"
+	
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/conformance"
 )
 
 func withTimeout(t time.Duration, f func()) {
 	c := make(chan struct{})
 	defer close(c)
-
+	
 	go func() {
 		select {
 		case <-c:
@@ -30,7 +30,7 @@ func withTimeout(t time.Duration, f func()) {
 			panic("test took too long")
 		}
 	}()
-
+	
 	f()
 }
 
@@ -69,7 +69,7 @@ func TestEtcd(t *testing.T) {
 		return
 	}
 	endpoints := strings.Split(endpointsStr, ",")
-
+	
 	newStorage := func() storage.Storage {
 		s := &Etcd{
 			Endpoints: endpoints,
@@ -79,18 +79,18 @@ func TestEtcd(t *testing.T) {
 			fmt.Fprintln(os.Stdout, err)
 			t.Fatal(err)
 		}
-
+		
 		if err := cleanDB(conn); err != nil {
 			fmt.Fprintln(os.Stdout, err)
 			t.Fatal(err)
 		}
 		return conn
 	}
-
+	
 	withTimeout(time.Second*10, func() {
 		conformance.RunTests(t, newStorage)
 	})
-
+	
 	withTimeout(time.Minute*1, func() {
 		conformance.RunTransactionTests(t, newStorage)
 	})

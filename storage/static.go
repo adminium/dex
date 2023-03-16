@@ -3,8 +3,8 @@ package storage
 import (
 	"errors"
 	"strings"
-
-	"github.com/dexidp/dex/pkg/log"
+	
+	"github.com/adminium/dex/pkg/log"
 )
 
 // Tests for this code are in the "memory" package, since this package doesn't
@@ -15,7 +15,7 @@ import (
 // underlying
 type staticClientsStorage struct {
 	Storage
-
+	
 	// A read-only set of clients.
 	clients     []Client
 	clientsByID map[string]Client
@@ -27,7 +27,7 @@ func WithStaticClients(s Storage, staticClients []Client) Storage {
 	for _, client := range staticClients {
 		clientsByID[client.ID] = client
 	}
-
+	
 	return staticClientsStorage{s, staticClients, clientsByID}
 }
 
@@ -83,12 +83,12 @@ func (s staticClientsStorage) UpdateClient(id string, updater func(old Client) (
 
 type staticPasswordsStorage struct {
 	Storage
-
+	
 	// A read-only set of passwords.
 	passwords []Password
 	// A map of passwords that is indexed by lower-case email ids
 	passwordsByEmail map[string]Password
-
+	
 	logger log.Logger
 }
 
@@ -103,7 +103,7 @@ func WithStaticPasswords(s Storage, staticPasswords []Password, logger log.Logge
 		}
 		passwordsByEmail[lowerEmail] = p
 	}
-
+	
 	return staticPasswordsStorage{s, staticPasswords, passwordsByEmail, logger}
 }
 
@@ -127,7 +127,7 @@ func (s staticPasswordsStorage) ListPasswords() ([]Password, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	
 	n := 0
 	for _, password := range passwords {
 		// If an entry has the same email as those provided in the static
@@ -164,7 +164,7 @@ func (s staticPasswordsStorage) UpdatePassword(email string, updater func(old Pa
 // staticConnectorsStorage represents a storage with read-only set of connectors.
 type staticConnectorsStorage struct {
 	Storage
-
+	
 	// A read-only set of connectors.
 	connectors     []Connector
 	connectorsByID map[string]Connector
@@ -197,7 +197,7 @@ func (s staticConnectorsStorage) ListConnectors() ([]Connector, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	
 	n := 0
 	for _, connector := range connectors {
 		// If an entry has the same id as those provided in the static

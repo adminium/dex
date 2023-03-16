@@ -14,7 +14,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
-
+	
 	gosundheit "github.com/AppsFlyer/go-sundheit"
 	"github.com/AppsFlyer/go-sundheit/checks"
 	gosundheithttp "github.com/AppsFlyer/go-sundheit/http"
@@ -29,17 +29,17 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
-
-	"github.com/dexidp/dex/api/v2"
-	"github.com/dexidp/dex/pkg/log"
-	"github.com/dexidp/dex/server"
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/api/v2"
+	"github.com/adminium/dex/pkg/log"
+	"github.com/adminium/dex/server"
+	"github.com/adminium/dex/storage"
 )
 
 type serveOptions struct {
 	// Config file path
 	config string
-
+	
 	// Flags
 	webHTTPAddr   string
 	webHTTPSAddr  string
@@ -49,7 +49,7 @@ type serveOptions struct {
 
 func commandServe() *cobra.Command {
 	options := serveOptions{}
-
+	
 	cmd := &cobra.Command{
 		Use:     "serve [flags] [config file]",
 		Short:   "Launch Dex",
@@ -58,20 +58,20 @@ func commandServe() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			cmd.SilenceErrors = true
-
+			
 			options.config = args[0]
-
+			
 			return runServe(options)
 		},
 	}
-
+	
 	flags := cmd.Flags()
-
+	
 	flags.StringVar(&options.webHTTPAddr, "web-http-addr", "", "Web HTTP address")
 	flags.StringVar(&options.webHTTPSAddr, "web-https-addr", "", "Web HTTPS address")
 	flags.StringVar(&options.telemetryAddr, "telemetry-addr", "", "Telemetry address")
 	flags.StringVar(&options.grpcAddr, "grpc-addr", "", "gRPC API address")
-
+	
 	return cmd
 }
 
@@ -81,19 +81,19 @@ func runServe(options serveOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to read config file %s: %v", configFile, err)
 	}
-
+	
 	var c Config
 	if err := yaml.Unmarshal(configData, &c); err != nil {
 		return fmt.Errorf("error parse config file %s: %v", configFile, err)
 	}
-
+	
 	applyConfigOverrides(options, &c)
-
+	
 	logger, err := newLogger(c.Logger.Level, c.Logger.Format)
 	if err != nil {
 		return fmt.Errorf("invalid config: %v", err)
 	}
-
+	
 	logger.Infof(
 		"Dex Version: %s, Go Version: %s, Go OS/ARCH: %s %s",
 		version,
@@ -101,35 +101,35 @@ func runServe(options serveOptions) error {
 		runtime.GOOS,
 		runtime.GOARCH,
 	)
-
+	
 	if c.Logger.Level != "" {
 		logger.Infof("config using log level: %s", c.Logger.Level)
 	}
 	if err := c.Validate(); err != nil {
 		return err
 	}
-
+	
 	logger.Infof("config issuer: %s", c.Issuer)
-
+	
 	prometheusRegistry := prometheus.NewRegistry()
 	err = prometheusRegistry.Register(collectors.NewGoCollector())
 	if err != nil {
 		return fmt.Errorf("failed to register Go runtime metrics: %v", err)
 	}
-
+	
 	err = prometheusRegistry.Register(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	if err != nil {
 		return fmt.Errorf("failed to register process metrics: %v", err)
 	}
-
+	
 	grpcMetrics := grpcprometheus.NewServerMetrics()
 	err = prometheusRegistry.Register(grpcMetrics)
 	if err != nil {
 		return fmt.Errorf("failed to register gRPC server metrics: %v", err)
 	}
-
+	
 	var grpcOptions []grpc.ServerOption
-
+	
 	allowedTLSCiphers := []uint16{
 		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
@@ -140,21 +140,21 @@ func runServe(options serveOptions) error {
 		tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
 		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
 	}
-
+	
 	if c.GRPC.TLSCert != "" {
 		// Parse certificates from certificate file and key file for server.
 		cert, err := tls.LoadX509KeyPair(c.GRPC.TLSCert, c.GRPC.TLSKey)
 		if err != nil {
 			return fmt.Errorf("invalid config: error parsing gRPC certificate file: %v", err)
 		}
-
+		
 		tlsConfig := tls.Config{
 			Certificates:             []tls.Certificate{cert},
 			MinVersion:               tls.VersionTLS12,
 			CipherSuites:             allowedTLSCiphers,
 			PreferServerCipherSuites: true,
 		}
-
+		
 		if c.GRPC.TLSClientCA != "" {
 			// Parse certificates from client CA file to a new CertPool.
 			cPool := x509.NewCertPool()
@@ -165,28 +165,28 @@ func runServe(options serveOptions) error {
 			if !cPool.AppendCertsFromPEM(clientCert) {
 				return errors.New("invalid config: failed to parse client CA")
 			}
-
+			
 			tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
 			tlsConfig.ClientCAs = cPool
-
+			
 			// Only add metrics if client auth is enabled
 			grpcOptions = append(grpcOptions,
 				grpc.StreamInterceptor(grpcMetrics.StreamServerInterceptor()),
 				grpc.UnaryInterceptor(grpcMetrics.UnaryServerInterceptor()),
 			)
 		}
-
+		
 		grpcOptions = append(grpcOptions, grpc.Creds(credentials.NewTLS(&tlsConfig)))
 	}
-
+	
 	s, err := c.Storage.Config.Open(logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize storage: %v", err)
 	}
 	defer s.Close()
-
+	
 	logger.Infof("config storage: %s", c.Storage.Type)
-
+	
 	if len(c.StaticClients) > 0 {
 		for i, client := range c.StaticClients {
 			if client.Name == "" {
@@ -221,7 +221,7 @@ func runServe(options serveOptions) error {
 		}
 		s = storage.WithStaticPasswords(s, passwords, logger)
 	}
-
+	
 	storageConnectors := make([]storage.Connector, len(c.StaticConnectors))
 	for i, c := range c.StaticConnectors {
 		if c.ID == "" || c.Name == "" || c.Type == "" {
@@ -231,7 +231,7 @@ func runServe(options serveOptions) error {
 			return fmt.Errorf("invalid config: no config field for connector %q", c.ID)
 		}
 		logger.Infof("config connector: %s", c.ID)
-
+		
 		// convert to a storage connector object
 		conn, err := ToStorageConnector(c)
 		if err != nil {
@@ -239,7 +239,7 @@ func runServe(options serveOptions) error {
 		}
 		storageConnectors[i] = conn
 	}
-
+	
 	if c.EnablePasswordDB {
 		storageConnectors = append(storageConnectors, storage.Connector{
 			ID:   server.LocalConnector,
@@ -248,9 +248,9 @@ func runServe(options serveOptions) error {
 		})
 		logger.Infof("config connector: local passwords enabled")
 	}
-
+	
 	s = storage.WithStaticConnectors(s, storageConnectors)
-
+	
 	if len(c.OAuth2.ResponseTypes) > 0 {
 		logger.Infof("config response types accepted: %s", c.OAuth2.ResponseTypes)
 	}
@@ -263,12 +263,12 @@ func runServe(options serveOptions) error {
 	if len(c.Web.AllowedOrigins) > 0 {
 		logger.Infof("config allowed origins: %s", c.Web.AllowedOrigins)
 	}
-
+	
 	// explicitly convert to UTC.
 	now := func() time.Time { return time.Now().UTC() }
-
+	
 	healthChecker := gosundheit.New()
-
+	
 	serverConfig := server.Config{
 		SupportedResponseTypes: c.OAuth2.ResponseTypes,
 		SkipApprovalScreen:     c.OAuth2.SkipApprovalScreen,
@@ -325,28 +325,28 @@ func runServe(options serveOptions) error {
 	if err != nil {
 		return fmt.Errorf("invalid refresh token expiration policy config: %v", err)
 	}
-
+	
 	serverConfig.RefreshTokenPolicy = refreshTokenPolicy
 	serv, err := server.NewServer(context.Background(), serverConfig)
 	if err != nil {
 		return fmt.Errorf("failed to initialize server: %v", err)
 	}
-
+	
 	telemetryRouter := http.NewServeMux()
 	telemetryRouter.Handle("/metrics", promhttp.HandlerFor(prometheusRegistry, promhttp.HandlerOpts{}))
-
+	
 	// Configure health checker
 	{
 		handler := gosundheithttp.HandleHealthJSON(healthChecker)
 		telemetryRouter.Handle("/healthz", handler)
-
+		
 		// Kubernetes style health checks
 		telemetryRouter.HandleFunc("/healthz/live", func(w http.ResponseWriter, _ *http.Request) {
 			_, _ = w.Write([]byte("ok"))
 		})
 		telemetryRouter.Handle("/healthz/ready", handler)
 	}
-
+	
 	healthChecker.RegisterCheck(
 		&checks.CustomCheck{
 			CheckName: "storage",
@@ -355,82 +355,82 @@ func runServe(options serveOptions) error {
 		gosundheit.ExecutionPeriod(15*time.Second),
 		gosundheit.InitiallyPassing(true),
 	)
-
+	
 	var group run.Group
-
+	
 	// Set up telemetry server
 	if c.Telemetry.HTTP != "" {
 		const name = "telemetry"
-
+		
 		logger.Infof("listening (%s) on %s", name, c.Telemetry.HTTP)
-
+		
 		l, err := net.Listen("tcp", c.Telemetry.HTTP)
 		if err != nil {
 			return fmt.Errorf("listening (%s) on %s: %v", name, c.Telemetry.HTTP, err)
 		}
-
+		
 		if c.Telemetry.EnableProfiling {
 			pprofHandler(telemetryRouter)
 		}
-
+		
 		server := &http.Server{
 			Handler: telemetryRouter,
 		}
 		defer server.Close()
-
+		
 		group.Add(func() error {
 			return server.Serve(l)
 		}, func(err error) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
-
+			
 			logger.Debugf("starting graceful shutdown (%s)", name)
 			if err := server.Shutdown(ctx); err != nil {
 				logger.Errorf("graceful shutdown (%s): %v", name, err)
 			}
 		})
 	}
-
+	
 	// Set up http server
 	if c.Web.HTTP != "" {
 		const name = "http"
-
+		
 		logger.Infof("listening (%s) on %s", name, c.Web.HTTP)
-
+		
 		l, err := net.Listen("tcp", c.Web.HTTP)
 		if err != nil {
 			return fmt.Errorf("listening (%s) on %s: %v", name, c.Web.HTTP, err)
 		}
-
+		
 		server := &http.Server{
 			Handler: serv,
 		}
 		defer server.Close()
-
+		
 		group.Add(func() error {
 			return server.Serve(l)
 		}, func(err error) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
-
+			
 			logger.Debugf("starting graceful shutdown (%s)", name)
 			if err := server.Shutdown(ctx); err != nil {
 				logger.Errorf("graceful shutdown (%s): %v", name, err)
 			}
 		})
 	}
-
+	
 	// Set up https server
 	if c.Web.HTTPS != "" {
 		const name = "https"
-
+		
 		logger.Infof("listening (%s) on %s", name, c.Web.HTTPS)
-
+		
 		l, err := net.Listen("tcp", c.Web.HTTPS)
 		if err != nil {
 			return fmt.Errorf("listening (%s) on %s: %v", name, c.Web.HTTPS, err)
 		}
-
+		
 		server := &http.Server{
 			Handler: serv,
 			TLSConfig: &tls.Config{
@@ -440,38 +440,38 @@ func runServe(options serveOptions) error {
 			},
 		}
 		defer server.Close()
-
+		
 		group.Add(func() error {
 			return server.ServeTLS(l, c.Web.TLSCert, c.Web.TLSKey)
 		}, func(err error) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
-
+			
 			logger.Debugf("starting graceful shutdown (%s)", name)
 			if err := server.Shutdown(ctx); err != nil {
 				logger.Errorf("graceful shutdown (%s): %v", name, err)
 			}
 		})
 	}
-
+	
 	// Set up grpc server
 	if c.GRPC.Addr != "" {
 		logger.Infof("listening (grpc) on %s", c.GRPC.Addr)
-
+		
 		grpcListener, err := net.Listen("tcp", c.GRPC.Addr)
 		if err != nil {
 			return fmt.Errorf("listening (grcp) on %s: %w", c.GRPC.Addr, err)
 		}
-
+		
 		grpcSrv := grpc.NewServer(grpcOptions...)
 		api.RegisterDexServer(grpcSrv, server.NewAPI(serverConfig.Storage, logger, version))
-
+		
 		grpcMetrics.InitializeMetrics(grpcSrv)
 		if c.GRPC.Reflection {
 			logger.Info("enabling reflection in grpc service")
 			reflection.Register(grpcSrv)
 		}
-
+		
 		group.Add(func() error {
 			return grpcSrv.Serve(grpcListener)
 		}, func(err error) {
@@ -479,7 +479,7 @@ func runServe(options serveOptions) error {
 			grpcSrv.GracefulStop()
 		})
 	}
-
+	
 	group.Add(run.SignalHandler(context.Background(), os.Interrupt, syscall.SIGTERM))
 	if err := group.Run(); err != nil {
 		if _, ok := err.(run.SignalError); !ok {
@@ -516,7 +516,7 @@ func newLogger(level string, format string) (log.Logger, error) {
 	default:
 		return nil, fmt.Errorf("log level is not one of the supported values (%s): %s", strings.Join(logLevels, ", "), level)
 	}
-
+	
 	var formatter utcFormatter
 	switch strings.ToLower(format) {
 	case "", "text":
@@ -526,7 +526,7 @@ func newLogger(level string, format string) (log.Logger, error) {
 	default:
 		return nil, fmt.Errorf("log format is not one of the supported values (%s): %s", strings.Join(logFormats, ", "), format)
 	}
-
+	
 	return &logrus.Logger{
 		Out:       os.Stderr,
 		Formatter: &formatter,
@@ -538,19 +538,19 @@ func applyConfigOverrides(options serveOptions, config *Config) {
 	if options.webHTTPAddr != "" {
 		config.Web.HTTP = options.webHTTPAddr
 	}
-
+	
 	if options.webHTTPSAddr != "" {
 		config.Web.HTTPS = options.webHTTPSAddr
 	}
-
+	
 	if options.telemetryAddr != "" {
 		config.Telemetry.HTTP = options.telemetryAddr
 	}
-
+	
 	if options.grpcAddr != "" {
 		config.GRPC.Addr = options.grpcAddr
 	}
-
+	
 	if config.Frontend.Dir == "" {
 		config.Frontend.Dir = os.Getenv("DEX_FRONTEND_DIR")
 	}

@@ -2,10 +2,10 @@ package etcd
 
 import (
 	"time"
-
+	
 	jose "gopkg.in/square/go-jose.v2"
-
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/storage"
 )
 
 // AuthCode is a mirrored struct from storage with JSON struct tags
@@ -15,13 +15,13 @@ type AuthCode struct {
 	RedirectURI string   `json:"redirectURI"`
 	Nonce       string   `json:"nonce,omitempty"`
 	Scopes      []string `json:"scopes,omitempty"`
-
+	
 	ConnectorID   string `json:"connectorID,omitempty"`
 	ConnectorData []byte `json:"connectorData,omitempty"`
 	Claims        Claims `json:"claims,omitempty"`
-
+	
 	Expiry time.Time `json:"expiry"`
-
+	
 	CodeChallenge       string `json:"code_challenge,omitempty"`
 	CodeChallengeMethod string `json:"code_challenge_method,omitempty"`
 }
@@ -64,27 +64,27 @@ func fromStorageAuthCode(a storage.AuthCode) AuthCode {
 type AuthRequest struct {
 	ID       string `json:"id"`
 	ClientID string `json:"client_id"`
-
+	
 	ResponseTypes []string `json:"response_types"`
 	Scopes        []string `json:"scopes"`
 	RedirectURI   string   `json:"redirect_uri"`
 	Nonce         string   `json:"nonce"`
 	State         string   `json:"state"`
-
+	
 	ForceApprovalPrompt bool `json:"force_approval_prompt"`
-
+	
 	Expiry time.Time `json:"expiry"`
-
+	
 	LoggedIn bool `json:"logged_in"`
-
+	
 	Claims Claims `json:"claims"`
-
+	
 	ConnectorID   string `json:"connector_id"`
 	ConnectorData []byte `json:"connector_data"`
-
+	
 	CodeChallenge       string `json:"code_challenge,omitempty"`
 	CodeChallengeMethod string `json:"code_challenge_method,omitempty"`
-
+	
 	HMACKey []byte `json:"hmac_key"`
 }
 
@@ -135,21 +135,21 @@ func toStorageAuthRequest(a AuthRequest) storage.AuthRequest {
 // RefreshToken is a mirrored struct from storage with JSON struct tags
 type RefreshToken struct {
 	ID string `json:"id"`
-
+	
 	Token         string `json:"token"`
 	ObsoleteToken string `json:"obsolete_token"`
-
+	
 	CreatedAt time.Time `json:"created_at"`
 	LastUsed  time.Time `json:"last_used"`
-
+	
 	ClientID string `json:"client_id"`
-
+	
 	ConnectorID   string `json:"connector_id"`
 	ConnectorData []byte `json:"connector_data"`
 	Claims        Claims `json:"claims"`
-
+	
 	Scopes []string `json:"scopes"`
-
+	
 	Nonce string `json:"nonce"`
 }
 

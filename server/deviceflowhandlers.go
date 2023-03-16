@@ -10,11 +10,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
+	
 	"golang.org/x/net/html"
-
-	"github.com/dexidp/dex/pkg/log"
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/pkg/log"
+	"github.com/adminium/dex/storage"
 )
 
 type deviceCodeResponse struct {
@@ -59,7 +59,7 @@ func (s *Server) handleDeviceExchange(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDeviceCode(w http.ResponseWriter, r *http.Request) {
 	pollIntervalSeconds := 5
-
+	
 	switch r.Method {
 	case http.MethodPost:
 		err := r.ParseForm()
@@ -68,14 +68,14 @@ func (s *Server) handleDeviceCode(w http.ResponseWriter, r *http.Request) {
 			s.tokenErrHelper(w, errInvalidRequest, "", http.StatusNotFound)
 			return
 		}
-
+		
 		// Get the client id and scopes from the post
 		clientID := r.Form.Get("client_id")
 		clientSecret := r.Form.Get("client_secret")
 		scopes := strings.Fields(r.Form.Get("scope"))
 		codeChallenge := r.Form.Get("code_challenge")
 		codeChallengeMethod := r.Form.Get("code_challenge_method")
-
+		
 		if codeChallengeMethod == "" {
 			codeChallengeMethod = codeChallengeMethodPlain
 		}
@@ -84,18 +84,18 @@ func (s *Server) handleDeviceCode(w http.ResponseWriter, r *http.Request) {
 			s.tokenErrHelper(w, errInvalidRequest, description, http.StatusBadRequest)
 			return
 		}
-
+		
 		s.logger.Infof("Received device request for client %v with scopes %v", clientID, scopes)
-
+		
 		// Make device code
 		deviceCode := storage.NewDeviceCode()
-
+		
 		// make user code
 		userCode := storage.NewUserCode()
-
+		
 		// Generate the expire time
 		expireTime := time.Now().Add(s.deviceRequestsValidFor)
-
+		
 		// Store the Device Request
 		deviceReq := storage.DeviceRequest{
 			UserCode:     userCode,
@@ -105,13 +105,13 @@ func (s *Server) handleDeviceCode(w http.ResponseWriter, r *http.Request) {
 			Scopes:       scopes,
 			Expiry:       expireTime,
 		}
-
+		
 		if err := s.storage.CreateDeviceRequest(deviceReq); err != nil {
 			s.logger.Errorf("Failed to store device request; %v", err)
 			s.tokenErrHelper(w, errInvalidRequest, "", http.StatusInternalServerError)
 			return
 		}
-
+		
 		// Store the device token
 		deviceToken := storage.DeviceToken{
 			DeviceCode:          deviceCode,
@@ -124,13 +124,13 @@ func (s *Server) handleDeviceCode(w http.ResponseWriter, r *http.Request) {
 				CodeChallengeMethod: codeChallengeMethod,
 			},
 		}
-
+		
 		if err := s.storage.CreateDeviceToken(deviceToken); err != nil {
 			s.logger.Errorf("Failed to store device token %v", err)
 			s.tokenErrHelper(w, errInvalidRequest, "", http.StatusInternalServerError)
 			return
 		}
-
+		
 		u, err := url.Parse(s.issuerURL.String())
 		if err != nil {
 			s.logger.Errorf("Could not parse issuer URL %v", err)
@@ -139,12 +139,12 @@ func (s *Server) handleDeviceCode(w http.ResponseWriter, r *http.Request) {
 		}
 		u.Path = path.Join(u.Path, "device")
 		vURI := u.String()
-
+		
 		q := u.Query()
 		q.Set("user_code", userCode)
 		u.RawQuery = q.Encode()
 		vURIComplete := u.String()
-
+		
 		code := deviceCodeResponse{
 			DeviceCode:              deviceCode,
 			UserCode:                userCode,
@@ -153,20 +153,20 @@ func (s *Server) handleDeviceCode(w http.ResponseWriter, r *http.Request) {
 			ExpireTime:              int(s.deviceRequestsValidFor.Seconds()),
 			PollInterval:            pollIntervalSeconds,
 		}
-
+		
 		// Device Authorization Response can contain cache control header according to
 		// https://tools.ietf.org/html/rfc8628#section-3.2
 		w.Header().Set("Cache-Control", "no-store")
-
+		
 		// Response type should be application/json according to
 		// https://datatracker.ietf.org/doc/html/rfc6749#section-5.1
 		w.Header().Set("Content-Type", "application/json")
-
+		
 		enc := json.NewEncoder(w)
 		enc.SetEscapeHTML(false)
 		enc.SetIndent("", "   ")
 		enc.Encode(code)
-
+	
 	default:
 		s.renderError(r, w, http.StatusBadRequest, "Invalid device code request type")
 		s.tokenErrHelper(w, errInvalidRequest, "", http.StatusBadRequest)
@@ -175,7 +175,7 @@ func (s *Server) handleDeviceCode(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDeviceTokenDeprecated(w http.ResponseWriter, r *http.Request) {
 	log.Deprecated(s.logger, `The /device/token endpoint was called. It will be removed, use /token instead.`)
-
+	
 	w.Header().Set("Content-Type", "application/json")
 	switch r.Method {
 	case http.MethodPost:
@@ -185,13 +185,13 @@ func (s *Server) handleDeviceTokenDeprecated(w http.ResponseWriter, r *http.Requ
 			s.tokenErrHelper(w, errInvalidRequest, "", http.StatusBadRequest)
 			return
 		}
-
+		
 		grantType := r.PostFormValue("grant_type")
 		if grantType != grantTypeDeviceCode {
 			s.tokenErrHelper(w, errInvalidGrant, "", http.StatusBadRequest)
 			return
 		}
-
+		
 		s.handleDeviceToken(w, r)
 	default:
 		s.renderError(r, w, http.StatusBadRequest, "Requested resource does not exist.")
@@ -204,9 +204,9 @@ func (s *Server) handleDeviceToken(w http.ResponseWriter, r *http.Request) {
 		s.tokenErrHelper(w, errInvalidRequest, "No device code received", http.StatusBadRequest)
 		return
 	}
-
+	
 	now := s.now()
-
+	
 	// Grab the device token, check validity
 	deviceToken, err := s.storage.GetDeviceToken(deviceCode)
 	if err != nil {
@@ -219,7 +219,7 @@ func (s *Server) handleDeviceToken(w http.ResponseWriter, r *http.Request) {
 		s.tokenErrHelper(w, deviceTokenExpired, "", http.StatusBadRequest)
 		return
 	}
-
+	
 	// Rate Limiting check
 	slowDown := false
 	pollInterval := deviceToken.PollIntervalSeconds
@@ -231,7 +231,7 @@ func (s *Server) handleDeviceToken(w http.ResponseWriter, r *http.Request) {
 	} else {
 		pollInterval = 5
 	}
-
+	
 	switch deviceToken.Status {
 	case deviceTokenPending:
 		updater := func(old storage.DeviceToken) (storage.DeviceToken, error) {
@@ -253,7 +253,7 @@ func (s *Server) handleDeviceToken(w http.ResponseWriter, r *http.Request) {
 	case deviceTokenComplete:
 		codeChallengeFromStorage := deviceToken.PKCE.CodeChallenge
 		providedCodeVerifier := r.Form.Get("code_verifier")
-
+		
 		switch {
 		case providedCodeVerifier != "" && codeChallengeFromStorage != "":
 			calculatedCodeChallenge, err := s.calculateCodeChallenge(providedCodeVerifier, deviceToken.PKCE.CodeChallengeMethod)
@@ -284,12 +284,12 @@ func (s *Server) handleDeviceCallback(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		userCode := r.FormValue("state")
 		code := r.FormValue("code")
-
+		
 		if userCode == "" || code == "" {
 			s.renderError(r, w, http.StatusBadRequest, "Request was missing parameters")
 			return
 		}
-
+		
 		// Authorization redirect callback from OAuth2 auth flow.
 		if errMsg := r.FormValue("error"); errMsg != "" {
 			// escape the message to prevent cross-site scripting
@@ -297,7 +297,7 @@ func (s *Server) handleDeviceCallback(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, msg, http.StatusBadRequest)
 			return
 		}
-
+		
 		authCode, err := s.storage.GetAuthCode(code)
 		if err != nil || s.now().After(authCode.Expiry) {
 			errCode := http.StatusBadRequest
@@ -308,7 +308,7 @@ func (s *Server) handleDeviceCallback(w http.ResponseWriter, r *http.Request) {
 			s.renderError(r, w, errCode, "Invalid or expired auth code.")
 			return
 		}
-
+		
 		// Grab the device request from storage
 		deviceReq, err := s.storage.GetDeviceRequest(userCode)
 		if err != nil || s.now().After(deviceReq.Expiry) {
@@ -320,7 +320,7 @@ func (s *Server) handleDeviceCallback(w http.ResponseWriter, r *http.Request) {
 			s.renderError(r, w, errCode, "Invalid or expired user code.")
 			return
 		}
-
+		
 		client, err := s.storage.GetClient(deviceReq.ClientID)
 		if err != nil {
 			if err != storage.ErrNotFound {
@@ -335,14 +335,14 @@ func (s *Server) handleDeviceCallback(w http.ResponseWriter, r *http.Request) {
 			s.tokenErrHelper(w, errInvalidClient, "Invalid client credentials.", http.StatusUnauthorized)
 			return
 		}
-
+		
 		resp, err := s.exchangeAuthCode(w, authCode, client)
 		if err != nil {
 			s.logger.Errorf("Could not exchange auth code for client %q: %v", deviceReq.ClientID, err)
 			s.renderError(r, w, http.StatusInternalServerError, "Failed to exchange auth code.")
 			return
 		}
-
+		
 		// Grab the device token from storage
 		old, err := s.storage.GetDeviceToken(deviceReq.DeviceCode)
 		if err != nil || s.now().After(old.Expiry) {
@@ -354,7 +354,7 @@ func (s *Server) handleDeviceCallback(w http.ResponseWriter, r *http.Request) {
 			s.renderError(r, w, errCode, "Invalid or expired device code.")
 			return
 		}
-
+		
 		updater := func(old storage.DeviceToken) (storage.DeviceToken, error) {
 			if old.Status == deviceTokenComplete {
 				return old, errors.New("device token already complete")
@@ -365,24 +365,24 @@ func (s *Server) handleDeviceCallback(w http.ResponseWriter, r *http.Request) {
 				s.renderError(r, w, http.StatusInternalServerError, "")
 				return old, err
 			}
-
+			
 			old.Token = string(respStr)
 			old.Status = deviceTokenComplete
 			return old, nil
 		}
-
+		
 		// Update refresh token in the storage, store the token and mark as complete
 		if err := s.storage.UpdateDeviceToken(deviceReq.DeviceCode, updater); err != nil {
 			s.logger.Errorf("failed to update device token: %v", err)
 			s.renderError(r, w, http.StatusBadRequest, "")
 			return
 		}
-
+		
 		if err := s.templates.deviceSuccess(r, w, client.Name); err != nil {
 			s.logger.Errorf("Server template error: %v", err)
 			s.renderError(r, w, http.StatusNotFound, "Page not found")
 		}
-
+	
 	default:
 		http.Error(w, fmt.Sprintf("method not implemented: %s", r.Method), http.StatusBadRequest)
 		return
@@ -398,15 +398,15 @@ func (s *Server) verifyUserCode(w http.ResponseWriter, r *http.Request) {
 			s.renderError(r, w, http.StatusBadRequest, "")
 			return
 		}
-
+		
 		userCode := r.Form.Get("user_code")
 		if userCode == "" {
 			s.renderError(r, w, http.StatusBadRequest, "No user code received")
 			return
 		}
-
+		
 		userCode = strings.ToUpper(userCode)
-
+		
 		// Find the user code in the available requests
 		deviceRequest, err := s.storage.GetDeviceRequest(userCode)
 		if err != nil || s.now().After(deviceRequest.Expiry) {
@@ -419,7 +419,7 @@ func (s *Server) verifyUserCode(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		}
-
+		
 		// Redirect to Dex Auth Endpoint
 		authURL := path.Join(s.issuerURL.Path, "/auth")
 		u, err := url.Parse(authURL)
@@ -435,9 +435,9 @@ func (s *Server) verifyUserCode(w http.ResponseWriter, r *http.Request) {
 		q.Set("redirect_uri", "/device/callback")
 		q.Set("scope", strings.Join(deviceRequest.Scopes, " "))
 		u.RawQuery = q.Encode()
-
+		
 		http.Redirect(w, r, u.String(), http.StatusFound)
-
+	
 	default:
 		s.renderError(r, w, http.StatusBadRequest, "Requested resource does not exist.")
 	}

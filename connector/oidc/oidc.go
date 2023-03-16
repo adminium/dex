@@ -10,13 +10,13 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
+	
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
-
-	"github.com/dexidp/dex/connector"
-	"github.com/dexidp/dex/pkg/httpclient"
-	"github.com/dexidp/dex/pkg/log"
+	
+	"github.com/adminium/dex/connector"
+	"github.com/adminium/dex/pkg/httpclient"
+	"github.com/adminium/dex/pkg/log"
 )
 
 // Config holds configuration options for OpenID Connect logins.
@@ -25,57 +25,57 @@ type Config struct {
 	ClientID     string `json:"clientID"`
 	ClientSecret string `json:"clientSecret"`
 	RedirectURI  string `json:"redirectURI"`
-
+	
 	// Causes client_secret to be passed as POST parameters instead of basic
 	// auth. This is specifically "NOT RECOMMENDED" by the OAuth2 RFC, but some
 	// providers require it.
 	//
 	// https://tools.ietf.org/html/rfc6749#section-2.3.1
 	BasicAuthUnsupported *bool `json:"basicAuthUnsupported"`
-
+	
 	Scopes []string `json:"scopes"` // defaults to "profile" and "email"
-
+	
 	// Certificates for SSL validation
 	RootCAs []string `json:"rootCAs"`
-
+	
 	// Override the value of email_verifed to true in the returned claims
 	InsecureSkipEmailVerified bool `json:"insecureSkipEmailVerified"`
-
-	// InsecureEnableGroups enables groups claims. This is disabled by default until https://github.com/dexidp/dex/issues/1065 is resolved
+	
+	// InsecureEnableGroups enables groups claims. This is disabled by default until https://github.com/adminium/dex/issues/1065 is resolved
 	InsecureEnableGroups bool `json:"insecureEnableGroups"`
-
+	
 	// AcrValues (Authentication Context Class Reference Values) that specifies the Authentication Context Class Values
 	// within the Authentication Request that the Authorization Server is being requested to use for
 	// processing requests from this Client, with the values appearing in order of preference.
 	AcrValues []string `json:"acrValues"`
-
+	
 	// Disable certificate verification
 	InsecureSkipVerify bool `json:"insecureSkipVerify"`
-
+	
 	// GetUserInfo uses the userinfo endpoint to get additional claims for
 	// the token. This is especially useful where upstreams return "thin"
 	// id tokens
 	GetUserInfo bool `json:"getUserInfo"`
-
+	
 	UserIDKey string `json:"userIDKey"`
-
+	
 	UserNameKey string `json:"userNameKey"`
-
+	
 	// PromptType will be used fot the prompt parameter (when offline_access, by default prompt=consent)
 	PromptType string `json:"promptType"`
-
+	
 	// OverrideClaimMapping will be used to override the options defined in claimMappings.
 	// i.e. if there are 'email' and `preferred_email` claims available, by default Dex will always use the `email` claim independent of the ClaimMapping.EmailKey.
 	// This setting allows you to override the default behavior of Dex and enforce the mappings defined in `claimMapping`.
 	OverrideClaimMapping bool `json:"overrideClaimMapping"` // defaults to false
-
+	
 	ClaimMapping struct {
 		// Configurable key which contains the preferred username claims
 		PreferredUsernameKey string `json:"preferred_username"` // defaults to "preferred_username"
-
+		
 		// Configurable key which contains the email claims
 		EmailKey string `json:"email"` // defaults to "email"
-
+		
 		// Configurable key which contains the groups claims
 		GroupsKey string `json:"groups"` // defaults to "groups"
 	} `json:"claimMapping"`
@@ -84,7 +84,7 @@ type Config struct {
 // Domains that don't support basic auth. golang.org/x/oauth2 has an internal
 // list, but it only matches specific URLs, not top level domains.
 var brokenAuthHeaderDomains = []string{
-	// See: https://github.com/dexidp/dex/issues/859
+	// See: https://github.com/adminium/dex/issues/859
 	"okta.com",
 	"oktapreview.com",
 }
@@ -116,18 +116,18 @@ func (c *Config) Open(id string, logger log.Logger) (conn connector.Connector, e
 	if err != nil {
 		return nil, err
 	}
-
+	
 	ctx, cancel := context.WithCancel(context.Background())
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, httpClient)
-
+	
 	provider, err := oidc.NewProvider(ctx, c.Issuer)
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to get provider: %v", err)
 	}
-
+	
 	endpoint := provider.Endpoint()
-
+	
 	if c.BasicAuthUnsupported != nil {
 		// Setting "basicAuthUnsupported" always overrides our detection.
 		if *c.BasicAuthUnsupported {
@@ -136,19 +136,19 @@ func (c *Config) Open(id string, logger log.Logger) (conn connector.Connector, e
 	} else if knownBrokenAuthHeaderProvider(c.Issuer) {
 		endpoint.AuthStyle = oauth2.AuthStyleInParams
 	}
-
+	
 	scopes := []string{oidc.ScopeOpenID}
 	if len(c.Scopes) > 0 {
 		scopes = append(scopes, c.Scopes...)
 	} else {
 		scopes = append(scopes, "profile", "email")
 	}
-
+	
 	// PromptType should be "consent" by default, if not set
 	if c.PromptType == "" {
 		c.PromptType = "consent"
 	}
-
+	
 	clientID := c.ClientID
 	return &oidcConnector{
 		provider:    provider,
@@ -215,14 +215,14 @@ func (c *oidcConnector) LoginURL(s connector.Scopes, callbackURL, state string) 
 	if c.redirectURI != callbackURL {
 		return "", fmt.Errorf("expected callback URL %q did not match the URL in the config %q", callbackURL, c.redirectURI)
 	}
-
+	
 	var opts []oauth2.AuthCodeOption
-
+	
 	if len(c.acrValues) > 0 {
 		acrValues := strings.Join(c.acrValues, " ")
 		opts = append(opts, oauth2.SetAuthURLParam("acr_values", acrValues))
 	}
-
+	
 	if s.OfflineAccess {
 		opts = append(opts, oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", c.promptType))
 	}
@@ -253,9 +253,9 @@ func (c *oidcConnector) HandleCallback(s connector.Scopes, r *http.Request) (ide
 	if errType := q.Get("error"); errType != "" {
 		return identity, &oauth2Error{errType, q.Get("error_description")}
 	}
-
+	
 	ctx := context.WithValue(r.Context(), oauth2.HTTPClient, c.httpClient)
-
+	
 	token, err := c.oauth2Config.Exchange(ctx, q.Get("code"))
 	if err != nil {
 		return identity, fmt.Errorf("oidc: failed to get token: %v", err)
@@ -270,9 +270,9 @@ func (c *oidcConnector) Refresh(ctx context.Context, s connector.Scopes, identit
 	if err != nil {
 		return identity, fmt.Errorf("oidc: failed to unmarshal connector data: %v", err)
 	}
-
+	
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, c.httpClient)
-
+	
 	t := &oauth2.Token{
 		RefreshToken: string(cd.RefreshToken),
 		Expiry:       time.Now().Add(-time.Hour),
@@ -286,14 +286,14 @@ func (c *oidcConnector) Refresh(ctx context.Context, s connector.Scopes, identit
 
 func (c *oidcConnector) createIdentity(ctx context.Context, identity connector.Identity, token *oauth2.Token, caller caller) (connector.Identity, error) {
 	var claims map[string]interface{}
-
+	
 	rawIDToken, ok := token.Extra("id_token").(string)
 	if ok {
 		idToken, err := c.verifier.Verify(ctx, rawIDToken)
 		if err != nil {
 			return identity, fmt.Errorf("oidc: failed to verify ID Token: %v", err)
 		}
-
+		
 		if err := idToken.Claims(&claims); err != nil {
 			return identity, fmt.Errorf("oidc: failed to decode claims: %v", err)
 		}
@@ -301,7 +301,7 @@ func (c *oidcConnector) createIdentity(ctx context.Context, identity connector.I
 		// ID tokens aren't mandatory in the reply when using a refresh_token grant
 		return identity, errors.New("oidc: no id_token in token response")
 	}
-
+	
 	// We immediately want to run getUserInfo if configured before we validate the claims
 	if c.getUserInfo {
 		userInfo, err := c.provider.UserInfo(ctx, oauth2.StaticTokenSource(token))
@@ -312,13 +312,13 @@ func (c *oidcConnector) createIdentity(ctx context.Context, identity connector.I
 			return identity, fmt.Errorf("oidc: failed to decode userinfo claims: %v", err)
 		}
 	}
-
+	
 	const subjectClaimKey = "sub"
 	subject, found := claims[subjectClaimKey].(string)
 	if !found {
 		return identity, fmt.Errorf("missing \"%s\" claim", subjectClaimKey)
 	}
-
+	
 	userNameKey := "name"
 	if c.userNameKey != "" {
 		userNameKey = c.userNameKey
@@ -327,12 +327,12 @@ func (c *oidcConnector) createIdentity(ctx context.Context, identity connector.I
 	if !found {
 		return identity, fmt.Errorf("missing \"%s\" claim", userNameKey)
 	}
-
+	
 	preferredUsername, found := claims["preferred_username"].(string)
 	if (!found || c.overrideClaimMapping) && c.preferredUsernameKey != "" {
 		preferredUsername, _ = claims[c.preferredUsernameKey].(string)
 	}
-
+	
 	hasEmailScope := false
 	for _, s := range c.oauth2Config.Scopes {
 		if s == "email" {
@@ -340,7 +340,7 @@ func (c *oidcConnector) createIdentity(ctx context.Context, identity connector.I
 			break
 		}
 	}
-
+	
 	var email string
 	emailKey := "email"
 	email, found = claims[emailKey].(string)
@@ -348,11 +348,11 @@ func (c *oidcConnector) createIdentity(ctx context.Context, identity connector.I
 		emailKey = c.emailKey
 		email, found = claims[emailKey].(string)
 	}
-
+	
 	if !found && hasEmailScope {
 		return identity, fmt.Errorf("missing email claim, not found \"%s\" key", emailKey)
 	}
-
+	
 	emailVerified, found := claims["email_verified"].(bool)
 	if !found {
 		if c.insecureSkipEmailVerified {
@@ -361,7 +361,7 @@ func (c *oidcConnector) createIdentity(ctx context.Context, identity connector.I
 			return identity, errors.New("missing \"email_verified\" claim")
 		}
 	}
-
+	
 	var groups []string
 	if c.insecureEnableGroups {
 		groupsKey := "groups"
@@ -370,12 +370,12 @@ func (c *oidcConnector) createIdentity(ctx context.Context, identity connector.I
 			groupsKey = c.groupsKey
 			vs, found = claims[groupsKey].([]interface{})
 		}
-
+		
 		// Fallback when claims[groupsKey] is a string instead of an array of strings.
 		if g, b := claims[groupsKey].(string); b {
 			groups = []string{g}
 		}
-
+		
 		if found {
 			for _, v := range vs {
 				if s, ok := v.(string); ok {
@@ -386,16 +386,16 @@ func (c *oidcConnector) createIdentity(ctx context.Context, identity connector.I
 			}
 		}
 	}
-
+	
 	cd := connectorData{
 		RefreshToken: []byte(token.RefreshToken),
 	}
-
+	
 	connData, err := json.Marshal(&cd)
 	if err != nil {
 		return identity, fmt.Errorf("oidc: failed to encode connector data: %v", err)
 	}
-
+	
 	identity = connector.Identity{
 		UserID:            subject,
 		Username:          name,
@@ -405,7 +405,7 @@ func (c *oidcConnector) createIdentity(ctx context.Context, identity connector.I
 		Groups:            groups,
 		ConnectorData:     connData,
 	}
-
+	
 	if c.userIDKey != "" {
 		userID, found := claims[c.userIDKey].(string)
 		if !found {
@@ -413,6 +413,6 @@ func (c *oidcConnector) createIdentity(ctx context.Context, identity connector.I
 		}
 		identity.UserID = userID
 	}
-
+	
 	return identity, nil
 }

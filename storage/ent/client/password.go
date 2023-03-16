@@ -3,9 +3,9 @@ package client
 import (
 	"context"
 	"strings"
-
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/ent/db/password"
+	
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/ent/db/password"
 )
 
 // CreatePassword saves provided password into the database.
@@ -28,7 +28,7 @@ func (d *Database) ListPasswords() ([]storage.Password, error) {
 	if err != nil {
 		return nil, convertDBError("list passwords: %w", err)
 	}
-
+	
 	storagePasswords := make([]storage.Password, 0, len(passwords))
 	for _, p := range passwords {
 		storagePasswords = append(storagePasswords, toStoragePassword(p))
@@ -63,24 +63,24 @@ func (d *Database) DeletePassword(email string) error {
 // UpdatePassword changes a password by email using an updater function and saves it to the database.
 func (d *Database) UpdatePassword(email string, updater func(old storage.Password) (storage.Password, error)) error {
 	email = strings.ToLower(email)
-
+	
 	tx, err := d.BeginTx(context.TODO())
 	if err != nil {
 		return convertDBError("update connector tx: %w", err)
 	}
-
+	
 	passwordToUpdate, err := tx.Password.Query().
 		Where(password.Email(email)).
 		Only(context.TODO())
 	if err != nil {
 		return rollback(tx, "update password database: %w", err)
 	}
-
+	
 	newPassword, err := updater(toStoragePassword(passwordToUpdate))
 	if err != nil {
 		return rollback(tx, "update password updating: %w", err)
 	}
-
+	
 	_, err = tx.Password.Update().
 		Where(password.Email(newPassword.Email)).
 		SetEmail(newPassword.Email).
@@ -91,10 +91,10 @@ func (d *Database) UpdatePassword(email string, updater func(old storage.Passwor
 	if err != nil {
 		return rollback(tx, "update password uploading: %w", err)
 	}
-
+	
 	if err = tx.Commit(); err != nil {
 		return rollback(tx, "update password commit: %w", err)
 	}
-
+	
 	return nil
 }

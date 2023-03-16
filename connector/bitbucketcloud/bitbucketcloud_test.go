@@ -9,8 +9,8 @@ import (
 	"net/url"
 	"reflect"
 	"testing"
-
-	"github.com/dexidp/dex/connector"
+	
+	"github.com/adminium/dex/connector"
 )
 
 func TestUserGroups(t *testing.T) {
@@ -26,27 +26,27 @@ func TestUserGroups(t *testing.T) {
 			{Workspace: workspaceSlug{Slug: "team-3"}},
 		},
 	}
-
+	
 	s := newTestServer(map[string]interface{}{
 		"/user/permissions/workspaces": teamsResponse,
 		"/groups/team-1":               []group{{Slug: "administrators"}, {Slug: "members"}},
 		"/groups/team-2":               []group{{Slug: "everyone"}},
 		"/groups/team-3":               []group{},
 	})
-
+	
 	connector := bitbucketConnector{apiURL: s.URL, legacyAPIURL: s.URL}
 	groups, err := connector.userWorkspaces(context.Background(), newClient())
-
+	
 	expectNil(t, err)
 	expectEquals(t, groups, []string{
 		"team-1",
 		"team-2",
 		"team-3",
 	})
-
+	
 	connector.includeTeamGroups = true
 	groups, err = connector.userWorkspaces(context.Background(), newClient())
-
+	
 	expectNil(t, err)
 	expectEquals(t, groups, []string{
 		"team-1",
@@ -56,7 +56,7 @@ func TestUserGroups(t *testing.T) {
 		"team-1/members",
 		"team-2/everyone",
 	})
-
+	
 	s.Close()
 }
 
@@ -64,13 +64,13 @@ func TestUserWithoutTeams(t *testing.T) {
 	s := newTestServer(map[string]interface{}{
 		"/user/permissions/workspaces": userWorkspacesResponse{},
 	})
-
+	
 	connector := bitbucketConnector{apiURL: s.URL}
 	groups, err := connector.userWorkspaces(context.Background(), newClient())
-
+	
 	expectNil(t, err)
 	expectEquals(t, len(groups), 0)
-
+	
 	s.Close()
 }
 
@@ -94,19 +94,19 @@ func TestUsernameIncludedInFederatedIdentity(t *testing.T) {
 			"expires_in":   "30",
 		},
 	})
-
+	
 	hostURL, err := url.Parse(s.URL)
 	expectNil(t, err)
-
+	
 	req, err := http.NewRequest("GET", hostURL.String(), nil)
 	expectNil(t, err)
-
+	
 	bitbucketConnector := bitbucketConnector{apiURL: s.URL, hostName: hostURL.Host, httpClient: newClient()}
 	identity, err := bitbucketConnector.HandleCallback(connector.Scopes{}, req)
-
+	
 	expectNil(t, err)
 	expectEquals(t, identity.Username, "some-login")
-
+	
 	s.Close()
 }
 

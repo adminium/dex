@@ -12,8 +12,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/dexidp/dex/connector"
+	
+	"github.com/adminium/dex/connector"
 )
 
 type testResponse struct {
@@ -48,10 +48,10 @@ func TestUserGroups(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	c := githubConnector{apiURL: s.URL}
 	groups, err := c.userGroups(context.Background(), newClient())
-
+	
 	expectNil(t, err)
 	expectEquals(t, groups, []string{
 		"org-1",
@@ -70,10 +70,10 @@ func TestUserGroupsWithoutOrgs(t *testing.T) {
 		"/user/teams": {data: []team{}},
 	})
 	defer s.Close()
-
+	
 	c := githubConnector{apiURL: s.URL}
 	groups, err := c.userGroups(context.Background(), newClient())
-
+	
 	expectNil(t, err)
 	expectEquals(t, len(groups), 0)
 }
@@ -90,10 +90,10 @@ func TestUserGroupsWithTeamNameFieldConfig(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	c := githubConnector{apiURL: s.URL, teamNameField: "slug"}
 	groups, err := c.userGroups(context.Background(), newClient())
-
+	
 	expectNil(t, err)
 	expectEquals(t, groups, []string{
 		"org-1",
@@ -113,10 +113,10 @@ func TestUserGroupsWithTeamNameAndSlugFieldConfig(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	c := githubConnector{apiURL: s.URL, teamNameField: "both"}
 	groups, err := c.userGroups(context.Background(), newClient())
-
+	
 	expectNil(t, err)
 	expectEquals(t, groups, []string{
 		"org-1",
@@ -143,24 +143,24 @@ func TestUsernameIncludedInFederatedIdentity(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	hostURL, err := url.Parse(s.URL)
 	expectNil(t, err)
-
+	
 	req, err := http.NewRequest("GET", hostURL.String(), nil)
 	expectNil(t, err)
-
+	
 	c := githubConnector{apiURL: s.URL, hostName: hostURL.Host, httpClient: newClient()}
 	identity, err := c.HandleCallback(connector.Scopes{Groups: true}, req)
-
+	
 	expectNil(t, err)
 	expectEquals(t, identity.Username, "some-login")
 	expectEquals(t, identity.UserID, "12345678")
 	expectEquals(t, 0, len(identity.Groups))
-
+	
 	c = githubConnector{apiURL: s.URL, hostName: hostURL.Host, httpClient: newClient(), loadAllGroups: true}
 	identity, err = c.HandleCallback(connector.Scopes{Groups: true}, req)
-
+	
 	expectNil(t, err)
 	expectEquals(t, identity.Username, "some-login")
 	expectEquals(t, identity.UserID, "12345678")
@@ -184,16 +184,16 @@ func TestLoginUsedAsIDWhenConfigured(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	hostURL, err := url.Parse(s.URL)
 	expectNil(t, err)
-
+	
 	req, err := http.NewRequest("GET", hostURL.String(), nil)
 	expectNil(t, err)
-
+	
 	c := githubConnector{apiURL: s.URL, hostName: hostURL.Host, httpClient: newClient(), useLoginAsID: true}
 	identity, err := c.HandleCallback(connector.Scopes{Groups: true}, req)
-
+	
 	expectNil(t, err)
 	expectEquals(t, identity.UserID, "some-login")
 	expectEquals(t, identity.Username, "Joe Bloggs")
@@ -229,13 +229,13 @@ func TestPreferredEmailDomainConfigured(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	hostURL, err := url.Parse(s.URL)
 	expectNil(t, err)
-
+	
 	client := newClient()
 	c := githubConnector{apiURL: s.URL, hostName: hostURL.Host, httpClient: client, preferredEmailDomain: "preferred-domain.com"}
-
+	
 	u, err := c.user(ctx, client)
 	expectNil(t, err)
 	expectEquals(t, u.Email, "some@preferred-domain.com")
@@ -271,13 +271,13 @@ func TestPreferredEmailDomainConfiguredWithGlob(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	hostURL, err := url.Parse(s.URL)
 	expectNil(t, err)
-
+	
 	client := newClient()
 	c := githubConnector{apiURL: s.URL, hostName: hostURL.Host, httpClient: client, preferredEmailDomain: "*.preferred-domain.co"}
-
+	
 	u, err := c.user(ctx, client)
 	expectNil(t, err)
 	expectEquals(t, u.Email, "some@sub-domain.preferred-domain.co")
@@ -303,13 +303,13 @@ func TestPreferredEmailDomainConfigured_UserHasNoPreferredDomainEmail(t *testing
 		},
 	})
 	defer s.Close()
-
+	
 	hostURL, err := url.Parse(s.URL)
 	expectNil(t, err)
-
+	
 	client := newClient()
 	c := githubConnector{apiURL: s.URL, hostName: hostURL.Host, httpClient: client, preferredEmailDomain: "preferred-domain.com"}
-
+	
 	u, err := c.user(ctx, client)
 	expectNil(t, err)
 	expectEquals(t, u.Email, "some@email.com")
@@ -340,13 +340,13 @@ func TestPreferredEmailDomainNotConfigured(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	hostURL, err := url.Parse(s.URL)
 	expectNil(t, err)
-
+	
 	client := newClient()
 	c := githubConnector{apiURL: s.URL, hostName: hostURL.Host, httpClient: client}
-
+	
 	u, err := c.user(ctx, client)
 	expectNil(t, err)
 	expectEquals(t, u.Email, "some@email.com")
@@ -377,13 +377,13 @@ func TestPreferredEmailDomainConfigured_Error_BothPrimaryAndPreferredDomainEmail
 		},
 	})
 	defer s.Close()
-
+	
 	hostURL, err := url.Parse(s.URL)
 	expectNil(t, err)
-
+	
 	client := newClient()
 	c := githubConnector{apiURL: s.URL, hostName: hostURL.Host, httpClient: client, preferredEmailDomain: "foo.bar"}
-
+	
 	_, err = c.user(ctx, client)
 	expectNotNil(t, err, "Email not found error")
 	expectEquals(t, err.Error(), "github: user has no verified, primary email or preferred-domain email")
@@ -442,7 +442,7 @@ func Test_isPreferredEmailDomain(t *testing.T) {
 			c := githubConnector{apiURL: "apiURL", hostName: "github.com", httpClient: client, preferredEmailDomain: test.preferredEmailDomain}
 			_, domainPart, _ := strings.Cut(test.email, "@")
 			res := c.isPreferredEmailDomain(domainPart)
-
+			
 			expectEquals(t, res, test.expected)
 		})
 	}
@@ -477,7 +477,7 @@ func Test_Open_PreferredDomainConfig(t *testing.T) {
 				PreferredEmailDomain: test.preferredEmailDomain,
 			}
 			_, err := c.Open("id", nil)
-
+			
 			expectEquals(t, err, test.expected)
 		})
 	}

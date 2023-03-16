@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"log"
 	"os"
-
+	
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-
-	"github.com/dexidp/dex/api/v2"
+	
+	"github.com/adminium/dex/api/v2"
 )
 
 func newDexClient(hostAndPort, caPath, clientCrt, clientKey string) (api.DexClient, error) {
@@ -24,18 +24,18 @@ func newDexClient(hostAndPort, caPath, clientCrt, clientKey string) (api.DexClie
 	if cPool.AppendCertsFromPEM(caCert) != true {
 		return nil, fmt.Errorf("failed to parse CA crt")
 	}
-
+	
 	clientCert, err := tls.LoadX509KeyPair(clientCrt, clientKey)
 	if err != nil {
 		return nil, fmt.Errorf("invalid client crt file: %s", caPath)
 	}
-
+	
 	clientTLSConfig := &tls.Config{
 		RootCAs:      cPool,
 		Certificates: []tls.Certificate{clientCert},
 	}
 	creds := credentials.NewTLS(clientTLSConfig)
-
+	
 	conn, err := grpc.Dial(hostAndPort, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		return nil, fmt.Errorf("dial: %v", err)
@@ -51,31 +51,31 @@ func createPassword(cli api.DexClient) error {
 		Username: "test",
 		UserId:   "test",
 	}
-
+	
 	createReq := &api.CreatePasswordReq{
 		Password: &p,
 	}
-
+	
 	// Create password.
 	if resp, err := cli.CreatePassword(context.TODO(), createReq); err != nil || resp.AlreadyExists {
-		if resp != nil &&  resp.AlreadyExists {
+		if resp != nil && resp.AlreadyExists {
 			return fmt.Errorf("Password %s already exists", createReq.Password.Email)
 		}
 		return fmt.Errorf("failed to create password: %v", err)
 	}
 	log.Printf("Created password with email %s", createReq.Password.Email)
-
+	
 	// List all passwords.
 	resp, err := cli.ListPasswords(context.TODO(), &api.ListPasswordReq{})
 	if err != nil {
 		return fmt.Errorf("failed to list password: %v", err)
 	}
-
+	
 	log.Print("Listing Passwords:\n")
 	for _, pass := range resp.Passwords {
 		log.Printf("%+v", pass)
 	}
-
+	
 	// Verifying correct and incorrect passwords
 	log.Print("Verifying Password:\n")
 	verifyReq := &api.VerifyPasswordReq{
@@ -90,7 +90,7 @@ func createPassword(cli api.DexClient) error {
 		return fmt.Errorf("failed to verify correct password: %v", verifyResp)
 	}
 	log.Printf("properly verified correct password: %t\n", verifyResp.Verified)
-
+	
 	badVerifyReq := &api.VerifyPasswordReq{
 		Email:    "test@example.com",
 		Password: "wrong_password",
@@ -103,16 +103,16 @@ func createPassword(cli api.DexClient) error {
 		return fmt.Errorf("verify returned true for incorrect password: %v", badVerifyResp)
 	}
 	log.Printf("properly failed to verify incorrect password: %t\n", badVerifyResp.Verified)
-
+	
 	log.Print("Listing Passwords:\n")
 	for _, pass := range resp.Passwords {
 		log.Printf("%+v", pass)
 	}
-
+	
 	deleteReq := &api.DeletePasswordReq{
 		Email: p.Email,
 	}
-
+	
 	// Delete password with email = test@example.com.
 	if resp, err := cli.DeletePassword(context.TODO(), deleteReq); err != nil || resp.NotFound {
 		if resp != nil && resp.NotFound {
@@ -121,7 +121,7 @@ func createPassword(cli api.DexClient) error {
 		return fmt.Errorf("failed to delete password: %v", err)
 	}
 	log.Printf("Deleted password with email %s", deleteReq.Email)
-
+	
 	return nil
 }
 
@@ -130,16 +130,16 @@ func main() {
 	clientCrt := flag.String("client-crt", "", "Client certificate")
 	clientKey := flag.String("client-key", "", "Client key")
 	flag.Parse()
-
+	
 	if *clientCrt == "" || *caCrt == "" || *clientKey == "" {
 		log.Fatal("Please provide CA & client certificates and client key. Usage: ./client --ca-crt=<path ca.crt> --client-crt=<path client.crt> --client-key=<path client key>")
 	}
-
+	
 	client, err := newDexClient("127.0.0.1:5557", *caCrt, *clientCrt, *clientKey)
 	if err != nil {
 		log.Fatalf("failed creating dex client: %v ", err)
 	}
-
+	
 	if err := createPassword(client); err != nil {
 		log.Fatalf("testPassword failed: %v", err)
 	}

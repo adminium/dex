@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"reflect"
 	"testing"
-
-	"github.com/dexidp/dex/connector"
+	
+	"github.com/adminium/dex/connector"
 )
 
 // tests that the email is used as their username when they have no username set
@@ -22,23 +22,23 @@ func TestUsernameIncludedInFederatedIdentity(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	hostURL, err := url.Parse(s.URL)
 	expectNil(t, err)
-
+	
 	req, err := http.NewRequest("GET", hostURL.String(), nil)
 	expectNil(t, err)
-
+	
 	c := giteaConnector{baseURL: s.URL, httpClient: newClient()}
 	identity, err := c.HandleCallback(connector.Scopes{}, req)
-
+	
 	expectNil(t, err)
 	expectEquals(t, identity.Username, "some@email.com")
 	expectEquals(t, identity.UserID, "12345678")
-
+	
 	c = giteaConnector{baseURL: s.URL, httpClient: newClient()}
 	identity, err = c.HandleCallback(connector.Scopes{}, req)
-
+	
 	expectNil(t, err)
 	expectEquals(t, identity.Username, "some@email.com")
 	expectEquals(t, identity.UserID, "12345678")

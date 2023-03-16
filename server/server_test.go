@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 	"time"
-
+	
 	gosundheit "github.com/AppsFlyer/go-sundheit"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/kylelemons/godebug/pretty"
@@ -30,11 +30,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 	jose "gopkg.in/square/go-jose.v2"
-
-	"github.com/dexidp/dex/connector"
-	"github.com/dexidp/dex/connector/mock"
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/memory"
+	
+	"github.com/adminium/dex/connector"
+	"github.com/adminium/dex/connector/mock"
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/memory"
 )
 
 func mustLoad(s string) *rsa.PrivateKey {
@@ -88,7 +88,7 @@ func newTestServer(ctx context.Context, t *testing.T, updateConfig func(c *Confi
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		server.ServeHTTP(w, r)
 	}))
-
+	
 	config := Config{
 		Issuer:  s.URL,
 		Storage: memory.New(logger),
@@ -104,7 +104,7 @@ func newTestServer(ctx context.Context, t *testing.T, updateConfig func(c *Confi
 		updateConfig(&config)
 	}
 	s.URL = config.Issuer
-
+	
 	connector := storage.Connector{
 		ID:              "mock",
 		Type:            "mockCallback",
@@ -114,12 +114,12 @@ func newTestServer(ctx context.Context, t *testing.T, updateConfig func(c *Confi
 	if err := config.Storage.CreateConnector(connector); err != nil {
 		t.Fatalf("create connector: %v", err)
 	}
-
+	
 	var err error
 	if server, err = newServer(ctx, config, staticRotationStrategy(testKey)); err != nil {
 		t.Fatal(err)
 	}
-
+	
 	// Default rotation policy
 	if server.refreshTokenPolicy == nil {
 		server.refreshTokenPolicy, err = NewRefreshTokenPolicy(logger, false, "", "", "")
@@ -128,7 +128,7 @@ func newTestServer(ctx context.Context, t *testing.T, updateConfig func(c *Confi
 		}
 		server.refreshTokenPolicy.now = config.Now
 	}
-
+	
 	return s, server
 }
 
@@ -137,7 +137,7 @@ func newTestServerMultipleConnectors(ctx context.Context, t *testing.T, updateCo
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		server.ServeHTTP(w, r)
 	}))
-
+	
 	config := Config{
 		Issuer:  s.URL,
 		Storage: memory.New(logger),
@@ -151,7 +151,7 @@ func newTestServerMultipleConnectors(ctx context.Context, t *testing.T, updateCo
 		updateConfig(&config)
 	}
 	s.URL = config.Issuer
-
+	
 	connector := storage.Connector{
 		ID:              "mock",
 		Type:            "mockCallback",
@@ -170,7 +170,7 @@ func newTestServerMultipleConnectors(ctx context.Context, t *testing.T, updateCo
 	if err := config.Storage.CreateConnector(connector2); err != nil {
 		t.Fatalf("create connector: %v", err)
 	}
-
+	
 	var err error
 	if server, err = newServer(ctx, config, staticRotationStrategy(testKey)); err != nil {
 		t.Fatal(err)
@@ -188,22 +188,22 @@ func TestNewTestServer(t *testing.T) {
 func TestDiscovery(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
+	
 	httpServer, _ := newTestServer(ctx, t, func(c *Config) {
 		c.Issuer += "/non-root-path"
 	})
 	defer httpServer.Close()
-
+	
 	p, err := oidc.NewProvider(ctx, httpServer.URL)
 	if err != nil {
 		t.Fatalf("failed to get provider: %v", err)
 	}
-
+	
 	var got map[string]*json.RawMessage
 	if err := p.Claims(&got); err != nil {
 		t.Fatalf("failed to decode claims: %v", err)
 	}
-
+	
 	required := []string{
 		"issuer",
 		"authorization_endpoint",
@@ -229,16 +229,16 @@ type test struct {
 	scopes []string
 	// handleToken provides the OAuth2 token response for the integration test.
 	handleToken func(context.Context, *oidc.Provider, *oauth2.Config, *oauth2.Token, *mock.Callback) error
-
+	
 	// extra parameters to pass when requesting auth_code
 	authCodeOptions []oauth2.AuthCodeOption
-
+	
 	// extra parameters to pass when retrieving id token
 	retrieveTokenOptions []oauth2.AuthCodeOption
-
+	
 	// define an error response, when the test expects an error on the auth endpoint
 	authError *OAuth2ErrorResponse
-
+	
 	// define an error response, when the test expects an error on the token endpoint
 	tokenError ErrorResponse
 }
@@ -259,15 +259,15 @@ type OAuth2ErrorResponse struct {
 
 func makeOAuth2Tests(clientID string, clientSecret string, now func() time.Time) oauth2Tests {
 	requestedScopes := []string{oidc.ScopeOpenID, "email", "profile", "groups", "offline_access"}
-
+	
 	// Used later when configuring test servers to set how long id_tokens will be valid for.
 	//
 	// The actual value of 30s is completely arbitrary. We just need to set a value
 	// so tests can compute the expected "expires_in" field.
 	idTokensValidFor := time.Second * 30
-
+	
 	oidcConfig := &oidc.Config{SkipClientIDCheck: true}
-
+	
 	basicIDTokenVerify := func(ctx context.Context, p *oidc.Provider, config *oauth2.Config, token *oauth2.Token, conn *mock.Callback) error {
 		idToken, ok := token.Extra("id_token").(string)
 		if !ok {
@@ -278,7 +278,7 @@ func makeOAuth2Tests(clientID string, clientSecret string, now func() time.Time)
 		}
 		return nil
 	}
-
+	
 	return oauth2Tests{
 		clientID: clientID,
 		tests: []test{
@@ -312,16 +312,16 @@ func makeOAuth2Tests(clientID string, clientSecret string, now func() time.Time)
 				name: "verify id token and oauth2 token expiry",
 				handleToken: func(ctx context.Context, p *oidc.Provider, config *oauth2.Config, token *oauth2.Token, conn *mock.Callback) error {
 					expectedExpiry := now().Add(idTokensValidFor)
-
+					
 					timeEq := func(t1, t2 time.Time, within time.Duration) bool {
 						return t1.Sub(t2) < within
 					}
-
+					
 					// TODO: This is a flaky test. We need something better (eg. clockwork).
 					if !timeEq(token.Expiry, expectedExpiry, 2*time.Second) {
 						return fmt.Errorf("expected expired_in to be %s, got %s", expectedExpiry, token.Expiry)
 					}
-
+					
 					rawIDToken, ok := token.Extra("id_token").(string)
 					if !ok {
 						return fmt.Errorf("no id token found")
@@ -347,7 +347,7 @@ func makeOAuth2Tests(clientID string, clientSecret string, now func() time.Time)
 					if err != nil {
 						return fmt.Errorf("failed to verify id token: %v", err)
 					}
-
+					
 					var claims struct {
 						AtHash string `json:"at_hash"`
 					}
@@ -364,7 +364,7 @@ func makeOAuth2Tests(clientID string, clientSecret string, now func() time.Time)
 					if wantAtHash != claims.AtHash {
 						return fmt.Errorf("expected at_hash=%q got=%q", wantAtHash, claims.AtHash)
 					}
-
+					
 					return nil
 				},
 			},
@@ -376,7 +376,7 @@ func makeOAuth2Tests(clientID string, clientSecret string, now func() time.Time)
 					if token.Valid() {
 						return errors.New("token shouldn't be valid")
 					}
-
+					
 					newToken, err := config.TokenSource(ctx, token).Token()
 					if err != nil {
 						return fmt.Errorf("failed to refresh token: %v", err)
@@ -384,7 +384,7 @@ func makeOAuth2Tests(clientID string, clientSecret string, now func() time.Time)
 					if token.RefreshToken == newToken.RefreshToken {
 						return fmt.Errorf("old refresh token was the same as the new token %q", token.RefreshToken)
 					}
-
+					
 					if _, err := config.TokenSource(ctx, token).Token(); err == nil {
 						return errors.New("was able to redeem the same refresh token twice")
 					}
@@ -429,7 +429,7 @@ func makeOAuth2Tests(clientID string, clientSecret string, now func() time.Time)
 					v.Add("client_secret", clientSecret)
 					v.Add("grant_type", "refresh_token")
 					v.Add("refresh_token", token.RefreshToken)
-
+					
 					// go-oidc adds an additional space before scopes when refreshing.
 					// Since we support that client we choose to be more relaxed about
 					// scope parsing, disregarding extra whitespace.
@@ -495,30 +495,30 @@ func makeOAuth2Tests(clientID string, clientSecret string, now func() time.Time)
 					if err != nil {
 						return err
 					}
-
+					
 					defer resp.Body.Close()
 					if resp.StatusCode != http.StatusBadRequest {
 						return fmt.Errorf("expected status code %d, got %d", http.StatusBadRequest, resp.StatusCode)
 					}
-
+					
 					var respErr struct {
 						Error       string `json:"error"`
 						Description string `json:"error_description"`
 					}
-
+					
 					if err = json.NewDecoder(resp.Body).Decode(&respErr); err != nil {
 						return fmt.Errorf("cannot decode token response: %v", err)
 					}
-
+					
 					if respErr.Error != errInvalidGrant {
 						return fmt.Errorf("expected error %q, got %q", errInvalidGrant, respErr.Error)
 					}
-
+					
 					expectedMsg := "Refresh token is invalid or has already been claimed by another client."
 					if respErr.Description != expectedMsg {
 						return fmt.Errorf("expected error description %q, got %q", expectedMsg, respErr.Description)
 					}
-
+					
 					return nil
 				},
 			},
@@ -532,7 +532,7 @@ func makeOAuth2Tests(clientID string, clientSecret string, now func() time.Time)
 					if token.Valid() {
 						return errors.New("token shouldn't be valid")
 					}
-
+					
 					ident := connector.Identity{
 						UserID:        "fooid",
 						Username:      "foo",
@@ -541,7 +541,7 @@ func makeOAuth2Tests(clientID string, clientSecret string, now func() time.Time)
 						Groups:        []string{"foo", "bar"},
 					}
 					conn.Identity = ident
-
+					
 					type claims struct {
 						Username      string   `json:"name"`
 						Email         string   `json:"email"`
@@ -549,7 +549,7 @@ func makeOAuth2Tests(clientID string, clientSecret string, now func() time.Time)
 						Groups        []string `json:"groups"`
 					}
 					want := claims{ident.Username, ident.Email, ident.EmailVerified, ident.Groups}
-
+					
 					newToken, err := config.TokenSource(ctx, token).Token()
 					if err != nil {
 						return fmt.Errorf("failed to refresh token: %v", err)
@@ -566,7 +566,7 @@ func makeOAuth2Tests(clientID string, clientSecret string, now func() time.Time)
 					if err := idToken.Claims(&got); err != nil {
 						return fmt.Errorf("failed to unmarshal claims: %v", err)
 					}
-
+					
 					if diff := pretty.Compare(want, got); diff != "" {
 						return fmt.Errorf("got identity != want identity: %s", diff)
 					}
@@ -658,7 +658,7 @@ func makeOAuth2Tests(clientID string, clientSecret string, now func() time.Time)
 			{
 				// Ensure that when no PKCE flow was started on /auth
 				// we cannot switch to PKCE on /token
-				name:            "No PKCE flow started on /auth",
+				name: "No PKCE flow started on /auth",
 				authCodeOptions: []oauth2.AuthCodeOption{
 					// No PKCE call on /auth
 				},
@@ -712,28 +712,28 @@ func TestOAuth2CodeFlow(t *testing.T) {
 	clientID := "testclient"
 	clientSecret := "testclientsecret"
 	requestedScopes := []string{oidc.ScopeOpenID, "email", "profile", "groups", "offline_access"}
-
+	
 	t0 := time.Now()
-
+	
 	// Always have the time function used by the server return the same time so
 	// we can predict expected values of "expires_in" fields exactly.
 	now := func() time.Time { return t0 }
-
+	
 	// Used later when configuring test servers to set how long id_tokens will be valid for.
 	//
 	// The actual value of 30s is completely arbitrary. We just need to set a value
 	// so tests can compute the expected "expires_in" field.
 	idTokensValidFor := time.Second * 30
-
+	
 	// Connector used by the tests.
 	var conn *mock.Callback
-
+	
 	tests := makeOAuth2Tests(clientID, clientSecret, now)
 	for _, tc := range tests.tests {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-
+			
 			// Setup a dex server.
 			httpServer, s := newTestServer(ctx, t, func(c *Config) {
 				c.Issuer += "/non-root-path"
@@ -741,16 +741,16 @@ func TestOAuth2CodeFlow(t *testing.T) {
 				c.IDTokensValidFor = idTokensValidFor
 			})
 			defer httpServer.Close()
-
+			
 			mockConn := s.connectors["mock"]
 			conn = mockConn.Connector.(*mock.Callback)
-
+			
 			// Query server's provider metadata.
 			p, err := oidc.NewProvider(ctx, httpServer.URL)
 			if err != nil {
 				t.Fatalf("failed to get provider: %v", err)
 			}
-
+			
 			var (
 				// If the OAuth2 client didn't get a response, we need
 				// to print the requests the user saw.
@@ -763,7 +763,7 @@ func TestOAuth2CodeFlow(t *testing.T) {
 					t.Errorf("never got a code in callback\n%s\n%s", reqDump, respDump)
 				}
 			}()
-
+			
 			// Setup OAuth2 client.
 			var oauth2Config *oauth2.Config
 			oauth2Client := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -772,14 +772,14 @@ func TestOAuth2CodeFlow(t *testing.T) {
 					http.Redirect(w, r, oauth2Config.AuthCodeURL(state, tc.authCodeOptions...), http.StatusSeeOther)
 					return
 				}
-
+				
 				// User is at '/callback' so they were just redirected _from_ dex.
 				q := r.URL.Query()
-
+				
 				// Did dex return an error?
 				if errType := q.Get("error"); errType != "" {
 					description := q.Get("error_description")
-
+					
 					if tc.authError == nil {
 						if description != "" {
 							t.Errorf("got error from server %s: %s", errType, description)
@@ -792,7 +792,7 @@ func TestOAuth2CodeFlow(t *testing.T) {
 					require.Equal(t, *tc.authError, OAuth2ErrorResponse{Error: errType, ErrorDescription: description})
 					return
 				}
-
+				
 				// Grab code, exchange for token.
 				if code := q.Get("code"); code != "" {
 					gotCode = true
@@ -801,7 +801,7 @@ func TestOAuth2CodeFlow(t *testing.T) {
 						checkErrorResponse(err, t, tc)
 						return
 					}
-
+					
 					if err != nil {
 						t.Errorf("failed to exchange code for token: %v", err)
 						return
@@ -812,16 +812,16 @@ func TestOAuth2CodeFlow(t *testing.T) {
 					}
 					return
 				}
-
+				
 				// Ensure state matches.
 				if gotState := q.Get("state"); gotState != state {
 					t.Errorf("state did not match, want=%q got=%q", state, gotState)
 				}
 				w.WriteHeader(http.StatusOK)
 			}))
-
+			
 			defer oauth2Client.Close()
-
+			
 			// Register the client above with dex.
 			redirectURL := oauth2Client.URL + "/callback"
 			client := storage.Client{
@@ -832,14 +832,14 @@ func TestOAuth2CodeFlow(t *testing.T) {
 			if err := s.storage.CreateClient(client); err != nil {
 				t.Fatalf("failed to create client: %v", err)
 			}
-
+			
 			if err := s.storage.CreateRefresh(storage.RefreshToken{
 				ID:       "existedrefrestoken",
 				ClientID: "unexcistedclientid",
 			}); err != nil {
 				t.Fatalf("failed to create existed refresh token: %v", err)
 			}
-
+			
 			// Create the OAuth2 config.
 			oauth2Config = &oauth2.Config{
 				ClientID:     client.ID,
@@ -851,7 +851,7 @@ func TestOAuth2CodeFlow(t *testing.T) {
 			if len(tc.scopes) != 0 {
 				oauth2Config.Scopes = tc.scopes
 			}
-
+			
 			// Login!
 			//
 			//   1. First request to client, redirects to dex.
@@ -864,19 +864,19 @@ func TestOAuth2CodeFlow(t *testing.T) {
 				t.Fatalf("get failed: %v", err)
 			}
 			defer resp.Body.Close()
-
+			
 			if reqDump, err = httputil.DumpRequest(resp.Request, false); err != nil {
 				t.Fatal(err)
 			}
 			if respDump, err = httputil.DumpResponse(resp, true); err != nil {
 				t.Fatal(err)
 			}
-
+			
 			tokens, err := s.storage.ListRefreshTokens()
 			if err != nil {
 				t.Fatalf("failed to get existed refresh token: %v", err)
 			}
-
+			
 			for _, token := range tokens {
 				if /* token was updated */ token.ObsoleteToken != "" && token.ConnectorData != nil {
 					t.Fatalf("token connectorDatawith id %q field is not nil: %s", token.ID, token.ConnectorData)
@@ -889,18 +889,18 @@ func TestOAuth2CodeFlow(t *testing.T) {
 func TestOAuth2ImplicitFlow(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
+	
 	httpServer, s := newTestServer(ctx, t, func(c *Config) {
 		// Enable support for the implicit flow.
 		c.SupportedResponseTypes = []string{"code", "token", "id_token"}
 	})
 	defer httpServer.Close()
-
+	
 	p, err := oidc.NewProvider(ctx, httpServer.URL)
 	if err != nil {
 		t.Fatalf("failed to get provider: %v", err)
 	}
-
+	
 	var (
 		reqDump, respDump []byte
 		gotIDToken        bool
@@ -912,7 +912,7 @@ func TestOAuth2ImplicitFlow(t *testing.T) {
 			t.Errorf("never got a id token in fragment\n%s\n%s", reqDump, respDump)
 		}
 	}()
-
+	
 	var oauth2Config *oauth2.Config
 	oauth2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/callback" {
@@ -938,9 +938,9 @@ func TestOAuth2ImplicitFlow(t *testing.T) {
 		u := oauth2Config.AuthCodeURL(state, oauth2.SetAuthURLParam("response_type", "id_token token"), oidc.Nonce(nonce))
 		http.Redirect(w, r, u, http.StatusSeeOther)
 	}))
-
+	
 	defer oauth2Server.Close()
-
+	
 	redirectURL := oauth2Server.URL + "/callback"
 	client := storage.Client{
 		ID:           "testclient",
@@ -950,11 +950,11 @@ func TestOAuth2ImplicitFlow(t *testing.T) {
 	if err := s.storage.CreateClient(client); err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
-
+	
 	idTokenVerifier := p.Verifier(&oidc.Config{
 		ClientID: client.ID,
 	})
-
+	
 	oauth2Config = &oauth2.Config{
 		ClientID:     client.ID,
 		ClientSecret: client.Secret,
@@ -962,7 +962,7 @@ func TestOAuth2ImplicitFlow(t *testing.T) {
 		Scopes:       []string{oidc.ScopeOpenID, "profile", "email", "offline_access"},
 		RedirectURL:  redirectURL,
 	}
-
+	
 	checkIDToken := func(u *url.URL) error {
 		if u.Fragment == "" {
 			return fmt.Errorf("url has no fragment: %s", u)
@@ -984,7 +984,7 @@ func TestOAuth2ImplicitFlow(t *testing.T) {
 		}
 		return nil
 	}
-
+	
 	httpClient := &http.Client{
 		// net/http servers don't preserve URL fragments when passing the request to
 		// handlers. The only way to get at that values is to check the redirect on
@@ -993,7 +993,7 @@ func TestOAuth2ImplicitFlow(t *testing.T) {
 			if len(via) > 10 {
 				return errors.New("too many redirects")
 			}
-
+			
 			// If we're being redirected back to the client server, inspect the URL fragment
 			// for an ID Token.
 			u := req.URL.String()
@@ -1007,13 +1007,13 @@ func TestOAuth2ImplicitFlow(t *testing.T) {
 			return nil
 		},
 	}
-
+	
 	resp, err := httpClient.Get(oauth2Server.URL + "/login")
 	if err != nil {
 		t.Fatalf("get failed: %v", err)
 	}
 	defer resp.Body.Close()
-
+	
 	if reqDump, err = httputil.DumpRequest(resp.Request, false); err != nil {
 		t.Fatal(err)
 	}
@@ -1025,17 +1025,17 @@ func TestOAuth2ImplicitFlow(t *testing.T) {
 func TestCrossClientScopes(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
+	
 	httpServer, s := newTestServer(ctx, t, func(c *Config) {
 		c.Issuer += "/non-root-path"
 	})
 	defer httpServer.Close()
-
+	
 	p, err := oidc.NewProvider(ctx, httpServer.URL)
 	if err != nil {
 		t.Fatalf("failed to get provider: %v", err)
 	}
-
+	
 	var (
 		reqDump, respDump []byte
 		gotCode           bool
@@ -1046,10 +1046,10 @@ func TestCrossClientScopes(t *testing.T) {
 			t.Errorf("never got a code in callback\n%s\n%s", reqDump, respDump)
 		}
 	}()
-
+	
 	testClientID := "testclient"
 	peerID := "peer"
-
+	
 	var oauth2Config *oauth2.Config
 	oauth2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/callback" {
@@ -1063,7 +1063,7 @@ func TestCrossClientScopes(t *testing.T) {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-
+			
 			if code := q.Get("code"); code != "" {
 				gotCode = true
 				token, err := oauth2Config.Exchange(ctx, code)
@@ -1081,7 +1081,7 @@ func TestCrossClientScopes(t *testing.T) {
 					t.Errorf("failed to parse ID Token: %v", err)
 					return
 				}
-
+				
 				sort.Strings(idToken.Audience)
 				expAudience := []string{peerID, testClientID}
 				if !reflect.DeepEqual(idToken.Audience, expAudience) {
@@ -1096,9 +1096,9 @@ func TestCrossClientScopes(t *testing.T) {
 		}
 		http.Redirect(w, r, oauth2Config.AuthCodeURL(state), http.StatusSeeOther)
 	}))
-
+	
 	defer oauth2Server.Close()
-
+	
 	redirectURL := oauth2Server.URL + "/callback"
 	client := storage.Client{
 		ID:           testClientID,
@@ -1108,17 +1108,17 @@ func TestCrossClientScopes(t *testing.T) {
 	if err := s.storage.CreateClient(client); err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
-
+	
 	peer := storage.Client{
 		ID:           peerID,
 		Secret:       "foobar",
 		TrustedPeers: []string{"testclient"},
 	}
-
+	
 	if err := s.storage.CreateClient(peer); err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
-
+	
 	oauth2Config = &oauth2.Config{
 		ClientID:     client.ID,
 		ClientSecret: client.Secret,
@@ -1130,13 +1130,13 @@ func TestCrossClientScopes(t *testing.T) {
 		},
 		RedirectURL: redirectURL,
 	}
-
+	
 	resp, err := http.Get(oauth2Server.URL + "/login")
 	if err != nil {
 		t.Fatalf("get failed: %v", err)
 	}
 	defer resp.Body.Close()
-
+	
 	if reqDump, err = httputil.DumpRequest(resp.Request, false); err != nil {
 		t.Fatal(err)
 	}
@@ -1148,17 +1148,17 @@ func TestCrossClientScopes(t *testing.T) {
 func TestCrossClientScopesWithAzpInAudienceByDefault(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
+	
 	httpServer, s := newTestServer(ctx, t, func(c *Config) {
 		c.Issuer += "/non-root-path"
 	})
 	defer httpServer.Close()
-
+	
 	p, err := oidc.NewProvider(ctx, httpServer.URL)
 	if err != nil {
 		t.Fatalf("failed to get provider: %v", err)
 	}
-
+	
 	var (
 		reqDump, respDump []byte
 		gotCode           bool
@@ -1169,10 +1169,10 @@ func TestCrossClientScopesWithAzpInAudienceByDefault(t *testing.T) {
 			t.Errorf("never got a code in callback\n%s\n%s", reqDump, respDump)
 		}
 	}()
-
+	
 	testClientID := "testclient"
 	peerID := "peer"
-
+	
 	var oauth2Config *oauth2.Config
 	oauth2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/callback" {
@@ -1186,7 +1186,7 @@ func TestCrossClientScopesWithAzpInAudienceByDefault(t *testing.T) {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-
+			
 			if code := q.Get("code"); code != "" {
 				gotCode = true
 				token, err := oauth2Config.Exchange(ctx, code)
@@ -1204,7 +1204,7 @@ func TestCrossClientScopesWithAzpInAudienceByDefault(t *testing.T) {
 					t.Errorf("failed to parse ID Token: %v", err)
 					return
 				}
-
+				
 				sort.Strings(idToken.Audience)
 				expAudience := []string{peerID, testClientID}
 				if !reflect.DeepEqual(idToken.Audience, expAudience) {
@@ -1219,9 +1219,9 @@ func TestCrossClientScopesWithAzpInAudienceByDefault(t *testing.T) {
 		}
 		http.Redirect(w, r, oauth2Config.AuthCodeURL(state), http.StatusSeeOther)
 	}))
-
+	
 	defer oauth2Server.Close()
-
+	
 	redirectURL := oauth2Server.URL + "/callback"
 	client := storage.Client{
 		ID:           testClientID,
@@ -1231,17 +1231,17 @@ func TestCrossClientScopesWithAzpInAudienceByDefault(t *testing.T) {
 	if err := s.storage.CreateClient(client); err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
-
+	
 	peer := storage.Client{
 		ID:           peerID,
 		Secret:       "foobar",
 		TrustedPeers: []string{"testclient"},
 	}
-
+	
 	if err := s.storage.CreateClient(peer); err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
-
+	
 	oauth2Config = &oauth2.Config{
 		ClientID:     client.ID,
 		ClientSecret: client.Secret,
@@ -1252,13 +1252,13 @@ func TestCrossClientScopesWithAzpInAudienceByDefault(t *testing.T) {
 		},
 		RedirectURL: redirectURL,
 	}
-
+	
 	resp, err := http.Get(oauth2Server.URL + "/login")
 	if err != nil {
 		t.Fatalf("get failed: %v", err)
 	}
 	defer resp.Body.Close()
-
+	
 	if reqDump, err = httputil.DumpRequest(resp.Request, false); err != nil {
 		t.Fatal(err)
 	}
@@ -1270,21 +1270,21 @@ func TestCrossClientScopesWithAzpInAudienceByDefault(t *testing.T) {
 func TestPasswordDB(t *testing.T) {
 	s := memory.New(logger)
 	conn := newPasswordDB(s)
-
+	
 	pw := "hi"
-
+	
 	h, err := bcrypt.GenerateFromPassword([]byte(pw), bcrypt.DefaultCost)
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	
 	s.CreatePassword(storage.Password{
 		Email:    "jane@example.com",
 		Username: "jane",
 		UserID:   "foobar",
 		Hash:     h,
 	})
-
+	
 	tests := []struct {
 		name         string
 		username     string
@@ -1317,7 +1317,7 @@ func TestPasswordDB(t *testing.T) {
 			wantInvalid: true,
 		},
 	}
-
+	
 	for _, tc := range tests {
 		ident, valid, err := conn.Login(context.Background(), connector.Scopes{}, tc.username, tc.password)
 		if err != nil {
@@ -1326,24 +1326,24 @@ func TestPasswordDB(t *testing.T) {
 			}
 			continue
 		}
-
+		
 		if tc.wantErr {
 			t.Errorf("%s: expected error", tc.name)
 			continue
 		}
-
+		
 		if !valid {
 			if !tc.wantInvalid {
 				t.Errorf("%s: expected valid password", tc.name)
 			}
 			continue
 		}
-
+		
 		if tc.wantInvalid {
 			t.Errorf("%s: expected invalid password", tc.name)
 			continue
 		}
-
+		
 		if diff := pretty.Compare(tc.wantIdentity, ident); diff != "" {
 			t.Errorf("%s: %s", tc.name, diff)
 		}
@@ -1353,7 +1353,7 @@ func TestPasswordDB(t *testing.T) {
 func TestPasswordDBUsernamePrompt(t *testing.T) {
 	s := memory.New(logger)
 	conn := newPasswordDB(s)
-
+	
 	expected := "Email Address"
 	if actual := conn.Prompt(); actual != expected {
 		t.Errorf("expected %v, got %v", expected, actual)
@@ -1373,9 +1373,9 @@ func (s storageWithKeysTrigger) GetKeys() (storage.Keys, error) {
 func TestKeyCacher(t *testing.T) {
 	tNow := time.Now()
 	now := func() time.Time { return tNow }
-
+	
 	s := memory.New(logger)
-
+	
 	tests := []struct {
 		before            func()
 		wantCallToStorage bool
@@ -1418,7 +1418,7 @@ func TestKeyCacher(t *testing.T) {
 			wantCallToStorage: false,
 		},
 	}
-
+	
 	gotCall := false
 	s = newKeyCacher(storageWithKeysTrigger{s, func() { gotCall = true }}, now)
 	for i, tc := range tests {
@@ -1468,29 +1468,29 @@ func TestRefreshTokenFlow(t *testing.T) {
 	now := time.Now
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
+	
 	httpServer, s := newTestServer(ctx, t, func(c *Config) {
 		c.Now = now
 	})
 	defer httpServer.Close()
-
+	
 	p, err := oidc.NewProvider(ctx, httpServer.URL)
 	if err != nil {
 		t.Fatalf("failed to get provider: %v", err)
 	}
-
+	
 	var oauth2Client oauth2Client
-
+	
 	oauth2Client.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/callback" {
 			// User is visiting app first time. Redirect to dex.
 			http.Redirect(w, r, oauth2Client.config.AuthCodeURL(state), http.StatusSeeOther)
 			return
 		}
-
+		
 		// User is at '/callback' so they were just redirected _from_ dex.
 		q := r.URL.Query()
-
+		
 		if errType := q.Get("error"); errType != "" {
 			if desc := q.Get("error_description"); desc != "" {
 				t.Errorf("got error from server %s: %s", errType, desc)
@@ -1500,7 +1500,7 @@ func TestRefreshTokenFlow(t *testing.T) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-
+		
 		// Grab code, exchange for token.
 		if code := q.Get("code"); code != "" {
 			token, err := oauth2Client.config.Exchange(ctx, code)
@@ -1510,7 +1510,7 @@ func TestRefreshTokenFlow(t *testing.T) {
 			}
 			oauth2Client.token = token
 		}
-
+		
 		// Ensure state matches.
 		if gotState := q.Get("state"); gotState != state {
 			t.Errorf("state did not match, want=%q got=%q", state, gotState)
@@ -1518,7 +1518,7 @@ func TestRefreshTokenFlow(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer oauth2Client.server.Close()
-
+	
 	// Register the client above with dex.
 	redirectURL := oauth2Client.server.URL + "/callback"
 	client := storage.Client{
@@ -1529,7 +1529,7 @@ func TestRefreshTokenFlow(t *testing.T) {
 	if err := s.storage.CreateClient(client); err != nil {
 		t.Fatalf("failed to create client: %v", err)
 	}
-
+	
 	oauth2Client.config = &oauth2.Config{
 		ClientID:     client.ID,
 		ClientSecret: client.Secret,
@@ -1537,25 +1537,25 @@ func TestRefreshTokenFlow(t *testing.T) {
 		Scopes:       []string{oidc.ScopeOpenID, "email", "offline_access"},
 		RedirectURL:  redirectURL,
 	}
-
+	
 	resp, err := http.Get(oauth2Client.server.URL + "/login")
 	if err != nil {
 		t.Fatalf("get failed: %v", err)
 	}
 	defer resp.Body.Close()
-
+	
 	tok := &oauth2.Token{
 		RefreshToken: oauth2Client.token.RefreshToken,
 		Expiry:       time.Now().Add(-time.Hour),
 	}
-
+	
 	// Login in again to receive a new token.
 	resp, err = http.Get(oauth2Client.server.URL + "/login")
 	if err != nil {
 		t.Fatalf("get failed: %v", err)
 	}
 	defer resp.Body.Close()
-
+	
 	// try to refresh expired token with old refresh token.
 	if _, err := oauth2Client.config.TokenSource(ctx, tok).Token(); err == nil {
 		t.Errorf("Token refreshed with invalid refresh token, error expected.")
@@ -1567,17 +1567,17 @@ func TestOAuth2DeviceFlow(t *testing.T) {
 	clientID := "testclient"
 	clientSecret := ""
 	requestedScopes := []string{oidc.ScopeOpenID, "email", "profile", "groups", "offline_access"}
-
+	
 	t0 := time.Now()
-
+	
 	// Always have the time function used by the server return the same time so
 	// we can predict expected values of "expires_in" fields exactly.
 	now := func() time.Time { return t0 }
-
+	
 	// Connector used by the tests.
 	var conn *mock.Callback
 	idTokensValidFor := time.Second * 30
-
+	
 	tests := makeOAuth2Tests(clientID, clientSecret, now)
 	testCases := []struct {
 		name          string
@@ -1596,13 +1596,13 @@ func TestOAuth2DeviceFlow(t *testing.T) {
 			oauth2Tests:   tests,
 		},
 	}
-
+	
 	for _, testCase := range testCases {
 		for _, tc := range testCase.oauth2Tests.tests {
 			t.Run(tc.name, func(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
-
+				
 				// Setup a dex server.
 				httpServer, s := newTestServer(ctx, t, func(c *Config) {
 					c.Issuer += "/non-root-path"
@@ -1610,15 +1610,15 @@ func TestOAuth2DeviceFlow(t *testing.T) {
 					c.IDTokensValidFor = idTokensValidFor
 				})
 				defer httpServer.Close()
-
+				
 				mockConn := s.connectors["mock"]
 				conn = mockConn.Connector.(*mock.Callback)
-
+				
 				p, err := oidc.NewProvider(ctx, httpServer.URL)
 				if err != nil {
 					t.Fatalf("failed to get provider: %v", err)
 				}
-
+				
 				// Add the Clients to the test server
 				client := storage.Client{
 					ID:           clientID,
@@ -1628,24 +1628,24 @@ func TestOAuth2DeviceFlow(t *testing.T) {
 				if err := s.storage.CreateClient(client); err != nil {
 					t.Fatalf("failed to create client: %v", err)
 				}
-
+				
 				if err := s.storage.CreateRefresh(storage.RefreshToken{
 					ID:       "existedrefrestoken",
 					ClientID: "unexcistedclientid",
 				}); err != nil {
 					t.Fatalf("failed to create existed refresh token: %v", err)
 				}
-
+				
 				// Grab the issuer that we'll reuse for the different endpoints to hit
 				issuer, err := url.Parse(s.issuerURL.String())
 				if err != nil {
 					t.Errorf("Could not parse issuer URL %v", err)
 				}
-
+				
 				// Send a new Device Request
 				codeURL, _ := url.Parse(issuer.String())
 				codeURL.Path = path.Join(codeURL.Path, "device/code")
-
+				
 				data := url.Values{}
 				data.Set("client_id", clientID)
 				data.Add("scope", strings.Join(requestedScopes, " "))
@@ -1664,13 +1664,13 @@ func TestOAuth2DeviceFlow(t *testing.T) {
 				if resp.Header.Get("Cache-Control") != "no-store" {
 					t.Errorf("Cache-Control header doesn't exist in Device Code Response")
 				}
-
+				
 				// Parse the code response
 				var deviceCode deviceCodeResponse
 				if err := json.Unmarshal(responseBody, &deviceCode); err != nil {
 					t.Errorf("Unexpected Device Code Response Format %v", string(responseBody))
 				}
-
+				
 				// Mock the user hitting the verification URI and posting the form
 				verifyURL, _ := url.Parse(issuer.String())
 				verifyURL.Path = path.Join(verifyURL.Path, "/device/auth/verify_code")
@@ -1688,7 +1688,7 @@ func TestOAuth2DeviceFlow(t *testing.T) {
 				if resp.StatusCode != http.StatusOK {
 					t.Errorf("%v - Unexpected Response Type.  Expected 200 got  %v.  Response: %v", tc.name, resp.StatusCode, string(responseBody))
 				}
-
+				
 				// Hit the Token Endpoint, and try and get an access token
 				tokenURL, _ := url.Parse(issuer.String())
 				tokenURL.Path = path.Join(tokenURL.Path, testCase.tokenEndpoint)
@@ -1707,13 +1707,13 @@ func TestOAuth2DeviceFlow(t *testing.T) {
 				if resp.StatusCode != http.StatusOK {
 					t.Errorf("%v - Unexpected Token Response Type.  Expected 200 got  %v.  Response: %v", tc.name, resp.StatusCode, string(responseBody))
 				}
-
+				
 				// Parse the response
 				var tokenRes accessTokenResponse
 				if err := json.Unmarshal(responseBody, &tokenRes); err != nil {
 					t.Errorf("Unexpected Device Access Token Response Format %v", string(responseBody))
 				}
-
+				
 				token := &oauth2.Token{
 					AccessToken:  tokenRes.AccessToken,
 					TokenType:    tokenRes.TokenType,
@@ -1725,7 +1725,7 @@ func TestOAuth2DeviceFlow(t *testing.T) {
 				if secs := tokenRes.ExpiresIn; secs > 0 {
 					token.Expiry = time.Now().Add(time.Duration(secs) * time.Second)
 				}
-
+				
 				// Run token tests to validate info is correct
 				// Create the OAuth2 config.
 				oauth2Config := &oauth2.Config{
@@ -1777,7 +1777,7 @@ func TestServerSupportedGrants(t *testing.T) {
 			resGrants: []string{grantTypeAuthorizationCode, grantTypeImplicit, grantTypePassword, grantTypeRefreshToken, grantTypeDeviceCode},
 		},
 	}
-
+	
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			_, srv := newTestServer(context.TODO(), t, tc.config)

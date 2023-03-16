@@ -9,8 +9,8 @@ import (
 	"os"
 	"reflect"
 	"testing"
-
-	"github.com/dexidp/dex/connector"
+	
+	"github.com/adminium/dex/connector"
 )
 
 type testResponse struct {
@@ -30,7 +30,7 @@ var dummyToken = testResponse{data: map[string]interface{}{
 func TestLoginURL(t *testing.T) {
 	testURL := "https://test.com"
 	testState := "some-state"
-
+	
 	conn := microsoftConnector{
 		apiURL:      testURL,
 		graphURL:    testURL,
@@ -38,12 +38,12 @@ func TestLoginURL(t *testing.T) {
 		clientID:    clientID,
 		tenant:      tenant,
 	}
-
+	
 	loginURL, _ := conn.LoginURL(connector.Scopes{}, conn.redirectURI, testState)
-
+	
 	parsedLoginURL, _ := url.Parse(loginURL)
 	queryParams := parsedLoginURL.Query()
-
+	
 	expectEquals(t, parsedLoginURL.Path, "/"+tenant+"/oauth2/v2.0/authorize")
 	expectEquals(t, queryParams.Get("client_id"), clientID)
 	expectEquals(t, queryParams.Get("redirect_uri"), testURL)
@@ -58,23 +58,23 @@ func TestLoginURLWithOptions(t *testing.T) {
 	testURL := "https://test.com"
 	promptType := "consent"
 	domainHint := "domain.hint"
-
+	
 	conn := microsoftConnector{
 		apiURL:      testURL,
 		graphURL:    testURL,
 		redirectURI: testURL,
 		clientID:    clientID,
 		tenant:      tenant,
-
+		
 		promptType: promptType,
 		domainHint: domainHint,
 	}
-
+	
 	loginURL, _ := conn.LoginURL(connector.Scopes{}, conn.redirectURI, "some-state")
-
+	
 	parsedLoginURL, _ := url.Parse(loginURL)
 	queryParams := parsedLoginURL.Query()
-
+	
 	expectEquals(t, queryParams.Get("prompt"), promptType)
 	expectEquals(t, queryParams.Get("domain_hint"), domainHint)
 }
@@ -87,9 +87,9 @@ func TestUserIdentityFromGraphAPI(t *testing.T) {
 		"/" + tenant + "/oauth2/v2.0/token": dummyToken,
 	})
 	defer s.Close()
-
+	
 	req, _ := http.NewRequest("GET", s.URL, nil)
-
+	
 	c := microsoftConnector{apiURL: s.URL, graphURL: s.URL, tenant: tenant}
 	identity, err := c.HandleCallback(connector.Scopes{Groups: false}, req)
 	expectNil(t, err)
@@ -110,9 +110,9 @@ func TestUserGroupsFromGraphAPI(t *testing.T) {
 		"/" + tenant + "/oauth2/v2.0/token": dummyToken,
 	})
 	defer s.Close()
-
+	
 	req, _ := http.NewRequest("GET", s.URL, nil)
-
+	
 	c := microsoftConnector{apiURL: s.URL, graphURL: s.URL, tenant: tenant}
 	identity, err := c.HandleCallback(connector.Scopes{Groups: true}, req)
 	expectNil(t, err)

@@ -2,8 +2,8 @@ package client
 
 import (
 	"context"
-
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/storage"
 )
 
 // CreateClient saves provided oauth2 client settings into the database.
@@ -29,7 +29,7 @@ func (d *Database) ListClients() ([]storage.Client, error) {
 	if err != nil {
 		return nil, convertDBError("list clients: %w", err)
 	}
-
+	
 	storageClients := make([]storage.Client, 0, len(clients))
 	for _, c := range clients {
 		storageClients = append(storageClients, toStorageClient(c))
@@ -61,17 +61,17 @@ func (d *Database) UpdateClient(id string, updater func(old storage.Client) (sto
 	if err != nil {
 		return convertDBError("update client tx: %w", err)
 	}
-
+	
 	client, err := tx.OAuth2Client.Get(context.TODO(), id)
 	if err != nil {
 		return rollback(tx, "update client database: %w", err)
 	}
-
+	
 	newClient, err := updater(toStorageClient(client))
 	if err != nil {
 		return rollback(tx, "update client updating: %w", err)
 	}
-
+	
 	_, err = tx.OAuth2Client.UpdateOneID(newClient.ID).
 		SetName(newClient.Name).
 		SetSecret(newClient.Secret).
@@ -83,10 +83,10 @@ func (d *Database) UpdateClient(id string, updater func(old storage.Client) (sto
 	if err != nil {
 		return rollback(tx, "update client uploading: %w", err)
 	}
-
+	
 	if err = tx.Commit(); err != nil {
 		return rollback(tx, "update auth request commit: %w", err)
 	}
-
+	
 	return nil
 }

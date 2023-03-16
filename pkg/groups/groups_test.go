@@ -2,10 +2,10 @@ package groups_test
 
 import (
 	"testing"
-
+	
 	"github.com/stretchr/testify/assert"
-
-	"github.com/dexidp/dex/pkg/groups"
+	
+	"github.com/adminium/dex/pkg/groups"
 )
 
 func TestFilter(t *testing.T) {

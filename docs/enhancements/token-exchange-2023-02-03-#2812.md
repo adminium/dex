@@ -61,14 +61,14 @@ and granting access to resources based on trusting federated identities:
 - [GCP Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation)
 - [AWS STS AssumeRoleWithWebIdentity](https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRoleWithWebIdentity.html)
 
-[#1484 Token exchange for external tokens]: https://github.com/dexidp/dex/issues/1484
-[#1668 Question: non-web based clients?]: https://github.com/dexidp/dex/issues/1668
-[#2657 Get OIDC token issued by Dex using a token issued by one of the connectors]: https://github.com/dexidp/dex/issues/2657
+[#1484 Token exchange for external tokens]: https://github.com/adminium/dex/issues/1484
+[#1668 Question: non-web based clients?]: https://github.com/adminium/dex/issues/1668
+[#2657 Get OIDC token issued by Dex using a token issued by one of the connectors]: https://github.com/adminium/dex/issues/2657
 [argoproj/argo-cd#11632 Argocd SSO login via Azure AD Auth using OIDC not work for cli sso login]: https://github.com/argoproj/argo-cd/issues/11632
-[#2450 Non-OIDC JWT Connector]: https://github.com/dexidp/dex/issues/2450
-[#1225 GitHub Non-Web application flow support]: https://github.com/dexidp/dex/issues/1225
+[#2450 Non-OIDC JWT Connector]: https://github.com/adminium/dex/issues/2450
+[#1225 GitHub Non-Web application flow support]: https://github.com/adminium/dex/issues/1225
 
-An initial attempt is at [#2806](https://github.com/dexidp/dex/pull/2806)
+An initial attempt is at [#2806](https://github.com/adminium/dex/pull/2806)
 
 ## Motivation
 
@@ -172,4 +172,4 @@ Additionally, a new `allowedGrantTypes` would allow for disabling exchanges if t
 
 [cel]: https://github.com/google/cel-go
 [rego]: https://www.openpolicyagent.org/docs/latest/policy-language/
-[#1635 Connector Middleware]: https://github.com/dexidp/dex/issues/1635
+[#1635 Connector Middleware]: https://github.com/adminium/dex/issues/1635

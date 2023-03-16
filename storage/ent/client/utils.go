@@ -3,17 +3,17 @@ package client
 import (
 	"fmt"
 	"hash"
-
+	
 	"github.com/pkg/errors"
-
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/ent/db"
+	
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/ent/db"
 )
 
 func rollback(tx *db.Tx, t string, err error) error {
 	rerr := tx.Rollback()
 	err = convertDBError(t, err)
-
+	
 	if rerr == nil {
 		return err
 	}
@@ -24,11 +24,11 @@ func convertDBError(t string, err error) error {
 	if db.IsNotFound(err) {
 		return storage.ErrNotFound
 	}
-
+	
 	if db.IsConstraintError(err) {
 		return storage.ErrAlreadyExists
 	}
-
+	
 	return fmt.Errorf(t, err)
 }
 
@@ -37,7 +37,7 @@ func convertDBError(t string, err error) error {
 // https://github.com/facebook/ent/issues/400
 func offlineSessionID(userID string, connID string, hasher func() hash.Hash) string {
 	h := hasher()
-
+	
 	h.Write([]byte(userID))
 	h.Write([]byte(connID))
 	return fmt.Sprintf("%x", h.Sum(nil))

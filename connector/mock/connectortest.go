@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-
-	"github.com/dexidp/dex/connector"
-	"github.com/dexidp/dex/pkg/log"
+	
+	"github.com/adminium/dex/connector"
+	"github.com/adminium/dex/pkg/log"
 )
 
 // NewCallbackConnector returns a mock connector which requires no user interaction. It always returns
@@ -30,7 +30,7 @@ func NewCallbackConnector(logger log.Logger) connector.Connector {
 
 var (
 	_ connector.CallbackConnector = &Callback{}
-
+	
 	_ connector.PasswordConnector = passwordConnector{}
 	_ connector.RefreshConnector  = passwordConnector{}
 )

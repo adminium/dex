@@ -5,9 +5,9 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/dexidp/dex/pkg/log"
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/pkg/log"
+	"github.com/adminium/dex/storage"
 )
 
 // New returns an in memory storage.
@@ -39,7 +39,7 @@ func (c *Config) Open(logger log.Logger) (storage.Storage, error) {
 
 type memStorage struct {
 	mu sync.Mutex
-
+	
 	clients         map[string]storage.Client
 	authCodes       map[string]storage.AuthCode
 	refreshTokens   map[string]storage.RefreshToken
@@ -49,9 +49,9 @@ type memStorage struct {
 	connectors      map[string]storage.Connector
 	deviceRequests  map[string]storage.DeviceRequest
 	deviceTokens    map[string]storage.DeviceToken
-
+	
 	keys storage.Keys
-
+	
 	logger log.Logger
 }
 

@@ -2,9 +2,9 @@ package client
 
 import (
 	"context"
-
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/ent/db/devicetoken"
+	
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/ent/db/devicetoken"
 )
 
 // CreateDeviceToken saves provided token into the database.
@@ -43,19 +43,19 @@ func (d *Database) UpdateDeviceToken(deviceCode string, updater func(old storage
 	if err != nil {
 		return convertDBError("update device token tx: %w", err)
 	}
-
+	
 	token, err := tx.DeviceToken.Query().
 		Where(devicetoken.DeviceCode(deviceCode)).
 		Only(context.TODO())
 	if err != nil {
 		return rollback(tx, "update device token database: %w", err)
 	}
-
+	
 	newToken, err := updater(toStorageDeviceToken(token))
 	if err != nil {
 		return rollback(tx, "update device token updating: %w", err)
 	}
-
+	
 	_, err = tx.DeviceToken.Update().
 		Where(devicetoken.DeviceCode(newToken.DeviceCode)).
 		SetDeviceCode(newToken.DeviceCode).
@@ -71,10 +71,10 @@ func (d *Database) UpdateDeviceToken(deviceCode string, updater func(old storage
 	if err != nil {
 		return rollback(tx, "update device token uploading: %w", err)
 	}
-
+	
 	if err = tx.Commit(); err != nil {
 		return rollback(tx, "update device token commit: %w", err)
 	}
-
+	
 	return nil
 }

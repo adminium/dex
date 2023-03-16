@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/ent/db/keys"
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/ent/db/keys"
 	jose "gopkg.in/square/go-jose.v2"
 )
 

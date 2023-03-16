@@ -12,23 +12,23 @@ import (
 	"strings"
 	"sync"
 	"time"
-
+	
 	"github.com/beevik/etree"
 	xrv "github.com/mattermost/xml-roundtrip-validator"
 	"github.com/pkg/errors"
 	dsig "github.com/russellhaering/goxmldsig"
 	"github.com/russellhaering/goxmldsig/etreeutils"
-
-	"github.com/dexidp/dex/connector"
-	"github.com/dexidp/dex/pkg/groups"
-	"github.com/dexidp/dex/pkg/log"
+	
+	"github.com/adminium/dex/connector"
+	"github.com/adminium/dex/pkg/groups"
+	"github.com/adminium/dex/pkg/log"
 )
 
 //nolint
 const (
 	bindingRedirect = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
 	bindingPOST     = "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
-
+	
 	nameIDFormatEmailAddress = "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
 	nameIDFormatUnspecified  = "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified"
 	nameIDFormatX509Subject  = "urn:oasis:names:tc:SAML:1.1:nameid-format:X509SubjectName"
@@ -38,13 +38,13 @@ const (
 	nameIDFormatKerberos     = "urn:oasis:names:tc:SAML:2.0:nameid-format:kerberos"
 	nameIDFormatPersistent   = "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent"
 	nameIDformatTransient    = "urn:oasis:names:tc:SAML:2.0:nameid-format:transient"
-
+	
 	// top level status codes
 	statusCodeSuccess = "urn:oasis:names:tc:SAML:2.0:status:Success"
-
+	
 	// subject confirmation methods
 	subjectConfirmationMethodBearer = "urn:oasis:names:tc:SAML:2.0:cm:bearer"
-
+	
 	// allowed clock drift for timestamp validation
 	allowedClockDrift = time.Duration(30) * time.Second
 )
@@ -62,7 +62,7 @@ var (
 		nameIDformatTransient,
 	}
 	nameIDFormatLookup = make(map[string]string)
-
+	
 	lookupOnce sync.Once
 )
 
@@ -72,17 +72,17 @@ type Config struct {
 	// we supported SAML metadata discovery.
 	//
 	// https://www.oasis-open.org/committees/download.php/35391/sstc-saml-metadata-errata-2.0-wd-04-diff.pdf
-
+	
 	EntityIssuer string `json:"entityIssuer"`
 	SSOIssuer    string `json:"ssoIssuer"`
 	SSOURL       string `json:"ssoURL"`
-
+	
 	// X509 CA file or raw data to verify XML signatures.
 	CA     string `json:"ca"`
 	CAData []byte `json:"caData"`
-
+	
 	InsecureSkipSignatureValidation bool `json:"insecureSkipSignatureValidation"`
-
+	
 	// Assertion attribute names to lookup various claims with.
 	UsernameAttr string `json:"usernameAttr"`
 	EmailAttr    string `json:"emailAttr"`
@@ -94,7 +94,7 @@ type Config struct {
 	AllowedGroups []string `json:"allowedGroups"`
 	FilterGroups  bool     `json:"filterGroups"`
 	RedirectURI   string   `json:"redirectURI"`
-
+	
 	// Requested format of the NameID. The NameID value is is mapped to the ID Token
 	// 'sub' claim.
 	//
@@ -146,7 +146,7 @@ func (c *Config) openConnector(logger log.Logger) (*provider, error) {
 	default:
 		return nil, fmt.Errorf("missing required fields %q", missing)
 	}
-
+	
 	p := &provider{
 		entityIssuer:  c.EntityIssuer,
 		ssoIssuer:     c.SSOIssuer,
@@ -160,10 +160,10 @@ func (c *Config) openConnector(logger log.Logger) (*provider, error) {
 		filterGroups:  c.FilterGroups,
 		redirectURI:   c.RedirectURI,
 		logger:        logger,
-
+		
 		nameIDPolicyFormat: c.NameIDPolicyFormat,
 	}
-
+	
 	if p.nameIDPolicyFormat == "" {
 		p.nameIDPolicyFormat = nameIDFormatPersistent
 	} else {
@@ -179,19 +179,19 @@ func (c *Config) openConnector(logger log.Logger) (*provider, error) {
 				nameIDFormatLookup[format] = format
 			}
 		})
-
+		
 		if format, ok := nameIDFormatLookup[p.nameIDPolicyFormat]; ok {
 			p.nameIDPolicyFormat = format
 		} else {
 			return nil, fmt.Errorf("invalid nameIDPolicyFormat: %q", p.nameIDPolicyFormat)
 		}
 	}
-
+	
 	if !c.InsecureSkipSignatureValidation {
 		if (c.CA == "") == (c.CAData == nil) {
 			return nil, errors.New("must provide either 'ca' or 'caData'")
 		}
-
+		
 		var caData []byte
 		if c.CA != "" {
 			data, err := os.ReadFile(c.CA)
@@ -202,7 +202,7 @@ func (c *Config) openConnector(logger log.Logger) (*provider, error) {
 		} else {
 			caData = c.CAData
 		}
-
+		
 		var (
 			certs []*x509.Certificate
 			block *pem.Block
@@ -234,12 +234,12 @@ type provider struct {
 	entityIssuer string
 	ssoIssuer    string
 	ssoURL       string
-
+	
 	now func() time.Time
-
+	
 	// If nil, don't do signature validation.
 	validator *dsig.ValidationContext
-
+	
 	// Attribute mappings
 	usernameAttr  string
 	emailAttr     string
@@ -247,11 +247,11 @@ type provider struct {
 	groupsDelim   string
 	allowedGroups []string
 	filterGroups  bool
-
+	
 	redirectURI string
-
+	
 	nameIDPolicyFormat string
-
+	
 	logger log.Logger
 }
 
@@ -272,12 +272,12 @@ func (p *provider) POSTData(s connector.Scopes, id string) (action, value string
 		// this value.
 		r.Issuer = &issuer{Issuer: p.entityIssuer}
 	}
-
+	
 	data, err := xml.MarshalIndent(r, "", "  ")
 	if err != nil {
 		return "", "", fmt.Errorf("marshal authn request: %v", err)
 	}
-
+	
 	// See: https://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf
 	// "3.5.4 Message Encoding"
 	return p.ssoURL, base64.StdEncoding.EncodeToString(data), nil
@@ -297,12 +297,12 @@ func (p *provider) HandlePOST(s connector.Scopes, samlResponse, inResponseTo str
 	if err != nil {
 		return ident, fmt.Errorf("decode response: %v", err)
 	}
-
+	
 	byteReader := bytes.NewReader(rawResp)
 	if xrvErr := xrv.Validate(byteReader); xrvErr != nil {
 		return ident, errors.Wrap(xrvErr, "validating XML response")
 	}
-
+	
 	// Root element is allowed to not be signed if the Assertion element is.
 	rootElementSigned := true
 	if p.validator != nil {
@@ -311,57 +311,57 @@ func (p *provider) HandlePOST(s connector.Scopes, samlResponse, inResponseTo str
 			return ident, fmt.Errorf("verify signature: %v", err)
 		}
 	}
-
+	
 	var resp response
 	if err := xml.Unmarshal(rawResp, &resp); err != nil {
 		return ident, fmt.Errorf("unmarshal response: %v", err)
 	}
-
+	
 	// If the root element isn't signed, there's no reason to inspect these
 	// elements. They're not verified.
 	if rootElementSigned {
 		if p.ssoIssuer != "" && resp.Issuer != nil && resp.Issuer.Issuer != p.ssoIssuer {
 			return ident, fmt.Errorf("expected Issuer value %s, got %s", p.ssoIssuer, resp.Issuer.Issuer)
 		}
-
+		
 		// Verify InResponseTo value matches the expected ID associated with
 		// the RelayState.
 		if resp.InResponseTo != inResponseTo {
 			return ident, fmt.Errorf("expected InResponseTo value %s, got %s", inResponseTo, resp.InResponseTo)
 		}
-
+		
 		// Destination is optional.
 		if resp.Destination != "" && resp.Destination != p.redirectURI {
 			return ident, fmt.Errorf("expected destination %q got %q", p.redirectURI, resp.Destination)
 		}
-
+		
 		// Status is a required element.
 		if resp.Status == nil {
 			return ident, fmt.Errorf("response did not contain a Status element")
 		}
-
+		
 		if err = p.validateStatus(resp.Status); err != nil {
 			return ident, err
 		}
 	}
-
+	
 	assertion := resp.Assertion
 	if assertion == nil {
 		return ident, fmt.Errorf("response did not contain an assertion")
 	}
-
+	
 	// Subject is usually optional, but we need it for the user ID, so complain
 	// if it's not present.
 	subject := assertion.Subject
 	if subject == nil {
 		return ident, fmt.Errorf("response did not contain a subject")
 	}
-
+	
 	// Validate that the response is to the request we originally sent.
 	if err = p.validateSubject(subject, inResponseTo); err != nil {
 		return ident, err
 	}
-
+	
 	// Conditions element is optional, but must be validated if present.
 	if assertion.Conditions != nil {
 		// Validate that dex is the intended audience of this response.
@@ -369,7 +369,7 @@ func (p *provider) HandlePOST(s connector.Scopes, samlResponse, inResponseTo str
 			return ident, err
 		}
 	}
-
+	
 	switch {
 	case subject.NameID != nil:
 		if ident.UserID = subject.NameID.Value; ident.UserID == "" {
@@ -378,41 +378,41 @@ func (p *provider) HandlePOST(s connector.Scopes, samlResponse, inResponseTo str
 	default:
 		return ident, fmt.Errorf("subject does not contain an NameID element")
 	}
-
+	
 	// After verifying the assertion, map data in the attribute statements to
 	// various user info.
 	attributes := assertion.AttributeStatement
 	if attributes == nil {
 		return ident, fmt.Errorf("response did not contain a AttributeStatement")
 	}
-
+	
 	// Log the actual attributes we got back from the server. This helps debug
 	// configuration errors on the server side, where the SAML server doesn't
 	// send us the correct attributes.
 	p.logger.Infof("parsed and verified saml response attributes %s", attributes)
-
+	
 	// Grab the email.
 	if ident.Email, _ = attributes.get(p.emailAttr); ident.Email == "" {
 		return ident, fmt.Errorf("no attribute with name %q: %s", p.emailAttr, attributes.names())
 	}
 	// TODO(ericchiang): Does SAML have an email_verified equivalent?
 	ident.EmailVerified = true
-
+	
 	// Grab the username.
 	if ident.Username, _ = attributes.get(p.usernameAttr); ident.Username == "" {
 		return ident, fmt.Errorf("no attribute with name %q: %s", p.usernameAttr, attributes.names())
 	}
-
+	
 	if len(p.allowedGroups) == 0 && (!s.Groups || p.groupsAttr == "") {
 		// Groups not requested or not configured. We're done.
 		return ident, nil
 	}
-
+	
 	if len(p.allowedGroups) > 0 && (!s.Groups || p.groupsAttr == "") {
 		// allowedGroups set but no groups or groupsAttr. Disallowing.
 		return ident, fmt.Errorf("user not a member of allowed groups")
 	}
-
+	
 	// Grab the groups.
 	if p.groupsDelim != "" {
 		groupsStr, ok := attributes.get(p.groupsAttr)
@@ -428,24 +428,24 @@ func (p *provider) HandlePOST(s connector.Scopes, samlResponse, inResponseTo str
 		}
 		ident.Groups = groups
 	}
-
+	
 	if len(p.allowedGroups) == 0 {
 		// No allowed groups set, just return the ident
 		return ident, nil
 	}
-
+	
 	// Look for membership in one of the allowed groups
 	groupMatches := groups.Filter(ident.Groups, p.allowedGroups)
-
+	
 	if len(groupMatches) == 0 {
 		// No group membership matches found, disallowing
 		return ident, fmt.Errorf("user not a member of allowed groups")
 	}
-
+	
 	if p.filterGroups {
 		ident.Groups = groupMatches
 	}
-
+	
 	// Otherwise, we're good
 	return ident, nil
 }
@@ -458,7 +458,7 @@ func (p *provider) validateStatus(status *status) error {
 	if statusCode == nil {
 		return fmt.Errorf("response did not contain a StatusCode")
 	}
-
+	
 	if statusCode.Value != statusCodeSuccess {
 		parts := strings.Split(statusCode.Value, ":")
 		lastPart := parts[len(parts)-1]
@@ -486,7 +486,7 @@ func (p *provider) validateSubject(subject *subject, inResponseTo string) error 
 	if len(subject.SubjectConfirmations) == 0 {
 		return fmt.Errorf("subject contained no SubjectConfirmations")
 	}
-
+	
 	errs := make([]error, 0, len(subject.SubjectConfirmations))
 	// One of these must match our assumptions, not all.
 	for _, c := range subject.SubjectConfirmations {
@@ -494,7 +494,7 @@ func (p *provider) validateSubject(subject *subject, inResponseTo string) error 
 			if c.Method != subjectConfirmationMethodBearer {
 				return fmt.Errorf("unexpected subject confirmation method: %v", c.Method)
 			}
-
+			
 			data := c.SubjectConfirmationData
 			if data == nil {
 				return fmt.Errorf("no SubjectConfirmationData field found in SubjectConfirmation")
@@ -502,7 +502,7 @@ func (p *provider) validateSubject(subject *subject, inResponseTo string) error 
 			if data.InResponseTo != inResponseTo {
 				return fmt.Errorf("expected SubjectConfirmationData InResponseTo value %q, got %q", inResponseTo, data.InResponseTo)
 			}
-
+			
 			notBefore := time.Time(data.NotBefore)
 			notOnOrAfter := time.Time(data.NotOnOrAfter)
 			now := p.now()
@@ -523,7 +523,7 @@ func (p *provider) validateSubject(subject *subject, inResponseTo string) error 
 		}
 		errs = append(errs, err)
 	}
-
+	
 	if len(errs) == 1 {
 		return fmt.Errorf("failed to validate subject confirmation: %v", errs[0])
 	}
@@ -542,19 +542,19 @@ func (p *provider) validateConditions(conditions *conditions) error {
 	if !notBefore.IsZero() && before(now, notBefore) {
 		return fmt.Errorf("at %s got response that cannot be processed before %s", now, notBefore)
 	}
-
+	
 	notOnOrAfter := time.Time(conditions.NotOnOrAfter)
 	if !notOnOrAfter.IsZero() && after(now, notOnOrAfter) {
 		return fmt.Errorf("at %s got response that cannot be processed because it expired at %s", now, notOnOrAfter)
 	}
-
+	
 	// Sometimes, dex's issuer string can be different than the redirect URI,
 	// but if dex's issuer isn't explicitly provided assume the redirect URI.
 	expAud := p.entityIssuer
 	if expAud == "" {
 		expAud = p.redirectURI
 	}
-
+	
 	// AudienceRestriction elements indicate the intended audience(s) of an
 	// assertion. If dex isn't in these audiences, reject the assertion.
 	//
@@ -570,7 +570,7 @@ func (p *provider) validateConditions(conditions *conditions) error {
 			}
 			values[i] = aud.Value
 		}
-
+		
 		if !issuerInAudiences {
 			return fmt.Errorf("required audience %s was not in Response audiences %s", expAud, values)
 		}
@@ -595,7 +595,7 @@ func verifyResponseSig(validator *dsig.ValidationContext, data []byte) (signed [
 	if err = doc.ReadFromBytes(data); err != nil {
 		return nil, false, fmt.Errorf("parse document: %v", err)
 	}
-
+	
 	response := doc.Root()
 	transformedResponse, err := validator.Validate(response)
 	if err == nil {
@@ -604,7 +604,7 @@ func verifyResponseSig(validator *dsig.ValidationContext, data []byte) (signed [
 		signed, err = doc.WriteToBytes()
 		return signed, true, err
 	}
-
+	
 	// Ensures xmlns are copied down to the assertion element when they are defined in the root
 	//
 	// TODO: Only select from child elements of the root.
@@ -616,13 +616,13 @@ func verifyResponseSig(validator *dsig.ValidationContext, data []byte) (signed [
 	if err != nil {
 		return nil, false, fmt.Errorf("response does not contain a valid signature element: %v", err)
 	}
-
+	
 	// Verified an assertion but not the response. Can't trust any child elements,
 	// except the assertion. Remove them all.
 	for _, el := range response.ChildElements() {
 		response.RemoveChild(el)
 	}
-
+	
 	// We still return the full <Response> element, even though it's unverified
 	// because the <Assertion> element is not a valid XML document on its own.
 	// It still requires the root element to define things like namespaces.

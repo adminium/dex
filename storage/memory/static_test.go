@@ -5,10 +5,10 @@ import (
 	"os"
 	"strings"
 	"testing"
-
+	
 	"github.com/sirupsen/logrus"
-
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/storage"
 )
 
 func TestStaticClients(t *testing.T) {
@@ -18,14 +18,14 @@ func TestStaticClients(t *testing.T) {
 		Level:     logrus.DebugLevel,
 	}
 	backing := New(logger)
-
+	
 	c1 := storage.Client{ID: "foo", Secret: "foo_secret"}
 	c2 := storage.Client{ID: "bar", Secret: "bar_secret"}
 	c3 := storage.Client{ID: "spam", Secret: "spam_secret"}
-
+	
 	backing.CreateClient(c1)
 	s := storage.WithStaticClients(backing, []storage.Client{c2})
-
+	
 	tests := []struct {
 		name    string
 		action  func() error
@@ -86,7 +86,7 @@ func TestStaticClients(t *testing.T) {
 			},
 		},
 	}
-
+	
 	for _, tc := range tests {
 		err := tc.action()
 		if err != nil && !tc.wantErr {
@@ -105,15 +105,15 @@ func TestStaticPasswords(t *testing.T) {
 		Level:     logrus.DebugLevel,
 	}
 	backing := New(logger)
-
+	
 	p1 := storage.Password{Email: "foo@example.com", Username: "foo_secret"}
 	p2 := storage.Password{Email: "bar@example.com", Username: "bar_secret"}
 	p3 := storage.Password{Email: "spam@example.com", Username: "spam_secret"}
 	p4 := storage.Password{Email: "Spam@example.com", Username: "Spam_secret"}
-
+	
 	backing.CreatePassword(p1)
 	s := storage.WithStaticPasswords(backing, []storage.Password{p2}, logger)
-
+	
 	tests := []struct {
 		name    string
 		action  func() error
@@ -198,7 +198,7 @@ func TestStaticPasswords(t *testing.T) {
 			},
 		},
 	}
-
+	
 	for _, tc := range tests {
 		err := tc.action()
 		if err != nil && !tc.wantErr {
@@ -217,18 +217,18 @@ func TestStaticConnectors(t *testing.T) {
 		Level:     logrus.DebugLevel,
 	}
 	backing := New(logger)
-
+	
 	config1 := []byte(`{"issuer": "https://accounts.google.com"}`)
 	config2 := []byte(`{"host": "ldap.example.com:636"}`)
 	config3 := []byte(`{"issuer": "https://example.com"}`)
-
+	
 	c1 := storage.Connector{ID: storage.NewID(), Type: "oidc", Name: "oidc", ResourceVersion: "1", Config: config1}
 	c2 := storage.Connector{ID: storage.NewID(), Type: "ldap", Name: "ldap", ResourceVersion: "1", Config: config2}
 	c3 := storage.Connector{ID: storage.NewID(), Type: "saml", Name: "saml", ResourceVersion: "1", Config: config3}
-
+	
 	backing.CreateConnector(c1)
 	s := storage.WithStaticConnectors(backing, []storage.Connector{c2})
-
+	
 	tests := []struct {
 		name    string
 		action  func() error
@@ -289,7 +289,7 @@ func TestStaticConnectors(t *testing.T) {
 			},
 		},
 	}
-
+	
 	for _, tc := range tests {
 		err := tc.action()
 		if err != nil && !tc.wantErr {

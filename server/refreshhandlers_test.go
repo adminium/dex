@@ -10,11 +10,11 @@ import (
 	"path"
 	"testing"
 	"time"
-
+	
 	"github.com/stretchr/testify/require"
-
-	"github.com/dexidp/dex/server/internal"
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/server/internal"
+	"github.com/adminium/dex/storage"
 )
 
 func mockRefreshTokenTestStorage(t *testing.T, s storage.Storage, useObsolete bool) {
@@ -25,20 +25,20 @@ func mockRefreshTokenTestStorage(t *testing.T, s storage.Storage, useObsolete bo
 		Name:         "dex client",
 		LogoURL:      "https://goo.gl/JIyzIC",
 	}
-
+	
 	err := s.CreateClient(c)
 	require.NoError(t, err)
-
+	
 	c1 := storage.Connector{
 		ID:     "test",
 		Type:   "mockCallback",
 		Name:   "mockCallback",
 		Config: nil,
 	}
-
+	
 	err = s.CreateConnector(c1)
 	require.NoError(t, err)
-
+	
 	refresh := storage.RefreshToken{
 		ID:            "test",
 		Token:         "bar",
@@ -58,22 +58,22 @@ func mockRefreshTokenTestStorage(t *testing.T, s storage.Storage, useObsolete bo
 		},
 		ConnectorData: []byte(`{"some":"data"}`),
 	}
-
+	
 	if useObsolete {
 		refresh.Token = "testtest"
 		refresh.ObsoleteToken = "bar"
 	}
-
+	
 	err = s.CreateRefresh(refresh)
 	require.NoError(t, err)
-
+	
 	offlineSessions := storage.OfflineSessions{
 		UserID:        "1",
 		ConnID:        "test",
 		Refresh:       map[string]*storage.RefreshTokenRef{"test": {ID: "test", ClientID: "test"}},
 		ConnectorData: nil,
 	}
-
+	
 	err = s.CreateOfflineSessions(offlineSessions)
 	require.NoError(t, err)
 }
@@ -149,59 +149,59 @@ func TestRefreshTokenExpirationScenarios(t *testing.T) {
 			error: `{"error":"invalid_request","error_description":"Refresh token expired."}`,
 		},
 	}
-
+	
 	for _, tc := range tests {
 		t.Run(tc.name, func(*testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-
+			
 			// Setup a dex server.
 			httpServer, s := newTestServer(ctx, t, func(c *Config) {
 				c.RefreshTokenPolicy = tc.policy
 				c.Now = func() time.Time { return t0 }
 			})
 			defer httpServer.Close()
-
+			
 			mockRefreshTokenTestStorage(t, s.storage, tc.useObsolete)
-
+			
 			u, err := url.Parse(s.issuerURL.String())
 			require.NoError(t, err)
-
+			
 			tokenData, err := internal.Marshal(&internal.RefreshToken{RefreshId: "test", Token: "bar"})
 			require.NoError(t, err)
-
+			
 			u.Path = path.Join(u.Path, "/token")
 			v := url.Values{}
 			v.Add("grant_type", "refresh_token")
 			v.Add("refresh_token", tokenData)
-
+			
 			req, _ := http.NewRequest("POST", u.String(), bytes.NewBufferString(v.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
 			req.SetBasicAuth("test", "barfoo")
-
+			
 			rr := httptest.NewRecorder()
 			s.ServeHTTP(rr, req)
-
+			
 			if tc.error == "" {
 				require.Equal(t, 200, rr.Code)
 			} else {
 				require.Equal(t, rr.Body.String(), tc.error)
 				return
 			}
-
+			
 			// Check that we received expected refresh token
 			var ref struct {
 				Token string `json:"refresh_token"`
 			}
 			err = json.Unmarshal(rr.Body.Bytes(), &ref)
 			require.NoError(t, err)
-
+			
 			if tc.policy.rotateRefreshTokens == false {
 				require.Equal(t, tokenData, ref.Token)
 			} else {
 				require.NotEqual(t, tokenData, ref.Token)
 			}
-
+			
 			if tc.useObsolete {
 				updatedTokenData, err := internal.Marshal(&internal.RefreshToken{RefreshId: "test", Token: "testtest"})
 				require.NoError(t, err)

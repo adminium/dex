@@ -10,12 +10,12 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-
+	
 	"golang.org/x/oauth2"
-
-	"github.com/dexidp/dex/connector"
-	"github.com/dexidp/dex/pkg/groups"
-	"github.com/dexidp/dex/pkg/log"
+	
+	"github.com/adminium/dex/connector"
+	"github.com/adminium/dex/pkg/groups"
+	"github.com/adminium/dex/pkg/log"
 )
 
 const (
@@ -89,7 +89,7 @@ func (c *gitlabConnector) oauth2Config(scopes connector.Scopes) *oauth2.Config {
 	if c.groupsRequired(scopes.Groups) {
 		gitlabScopes = []string{scopeUser, scopeOpenID}
 	}
-
+	
 	gitlabEndpoint := oauth2.Endpoint{AuthURL: c.baseURL + "/oauth/authorize", TokenURL: c.baseURL + "/oauth/token"}
 	return &oauth2.Config{
 		ClientID:     c.clientID,
@@ -124,36 +124,36 @@ func (c *gitlabConnector) HandleCallback(s connector.Scopes, r *http.Request) (i
 	if errType := q.Get("error"); errType != "" {
 		return identity, &oauth2Error{errType, q.Get("error_description")}
 	}
-
+	
 	oauth2Config := c.oauth2Config(s)
-
+	
 	ctx := r.Context()
 	if c.httpClient != nil {
 		ctx = context.WithValue(r.Context(), oauth2.HTTPClient, c.httpClient)
 	}
-
+	
 	token, err := oauth2Config.Exchange(ctx, q.Get("code"))
 	if err != nil {
 		return identity, fmt.Errorf("gitlab: failed to get token: %v", err)
 	}
-
+	
 	return c.identity(ctx, s, token)
 }
 
 func (c *gitlabConnector) identity(ctx context.Context, s connector.Scopes, token *oauth2.Token) (identity connector.Identity, err error) {
 	oauth2Config := c.oauth2Config(s)
 	client := oauth2Config.Client(ctx, token)
-
+	
 	user, err := c.user(ctx, client)
 	if err != nil {
 		return identity, fmt.Errorf("gitlab: get user: %v", err)
 	}
-
+	
 	username := user.Name
 	if username == "" {
 		username = user.Email
 	}
-
+	
 	identity = connector.Identity{
 		UserID:            strconv.Itoa(user.ID),
 		Username:          username,
@@ -164,7 +164,7 @@ func (c *gitlabConnector) identity(ctx context.Context, s connector.Scopes, toke
 	if c.useLoginAsID {
 		identity.UserID = user.Username
 	}
-
+	
 	if c.groupsRequired(s.Groups) {
 		groups, err := c.getGroups(ctx, client, s.Groups, user.Username)
 		if err != nil {
@@ -172,7 +172,7 @@ func (c *gitlabConnector) identity(ctx context.Context, s connector.Scopes, toke
 		}
 		identity.Groups = groups
 	}
-
+	
 	if s.OfflineAccess {
 		data := connectorData{RefreshToken: token.RefreshToken, AccessToken: token.AccessToken}
 		connData, err := json.Marshal(data)
@@ -181,7 +181,7 @@ func (c *gitlabConnector) identity(ctx context.Context, s connector.Scopes, toke
 		}
 		identity.ConnectorData = connData
 	}
-
+	
 	return identity, nil
 }
 
@@ -191,11 +191,11 @@ func (c *gitlabConnector) Refresh(ctx context.Context, s connector.Scopes, ident
 		return ident, fmt.Errorf("gitlab: unmarshal connector data: %v", err)
 	}
 	oauth2Config := c.oauth2Config(s)
-
+	
 	if c.httpClient != nil {
 		ctx = context.WithValue(ctx, oauth2.HTTPClient, c.httpClient)
 	}
-
+	
 	switch {
 	case data.RefreshToken != "":
 		{
@@ -240,7 +240,7 @@ func (c *gitlabConnector) user(ctx context.Context, client *http.Client) (gitlab
 		return u, fmt.Errorf("gitlab: get URL %v", err)
 	}
 	defer resp.Body.Close()
-
+	
 	if resp.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -248,7 +248,7 @@ func (c *gitlabConnector) user(ctx context.Context, client *http.Client) (gitlab
 		}
 		return u, fmt.Errorf("%s: %s", resp.Status, body)
 	}
-
+	
 	if err := json.NewDecoder(resp.Body).Decode(&u); err != nil {
 		return u, fmt.Errorf("failed to decode response: %v", err)
 	}
@@ -274,7 +274,7 @@ func (c *gitlabConnector) userGroups(ctx context.Context, client *http.Client) (
 		return nil, fmt.Errorf("gitlab: get URL %v", err)
 	}
 	defer resp.Body.Close()
-
+	
 	if resp.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -286,7 +286,7 @@ func (c *gitlabConnector) userGroups(ctx context.Context, client *http.Client) (
 	if err := json.NewDecoder(resp.Body).Decode(&u); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %v", err)
 	}
-
+	
 	return u.Groups, nil
 }
 
@@ -295,7 +295,7 @@ func (c *gitlabConnector) getGroups(ctx context.Context, client *http.Client, gr
 	if err != nil {
 		return nil, err
 	}
-
+	
 	if len(c.groups) > 0 {
 		filteredGroups := groups.Filter(gitlabGroups, c.groups)
 		if len(filteredGroups) == 0 {
@@ -305,6 +305,6 @@ func (c *gitlabConnector) getGroups(ctx context.Context, client *http.Client, gr
 	} else if groupScope {
 		return gitlabGroups, nil
 	}
-
+	
 	return nil, nil
 }

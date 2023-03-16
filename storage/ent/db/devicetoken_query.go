@@ -10,8 +10,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/dexidp/dex/storage/ent/db/devicetoken"
-	"github.com/dexidp/dex/storage/ent/db/predicate"
+	"github.com/adminium/dex/storage/ent/db/devicetoken"
+	"github.com/adminium/dex/storage/ent/db/predicate"
 )
 
 // DeviceTokenQuery is the builder for querying DeviceToken entities.

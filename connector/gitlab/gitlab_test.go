@@ -9,8 +9,8 @@ import (
 	"net/url"
 	"reflect"
 	"testing"
-
-	"github.com/dexidp/dex/connector"
+	
+	"github.com/adminium/dex/connector"
 )
 
 func TestUserGroups(t *testing.T) {
@@ -20,10 +20,10 @@ func TestUserGroups(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	c := gitlabConnector{baseURL: s.URL}
 	groups, err := c.getGroups(context.Background(), newClient(), true, "joebloggs")
-
+	
 	expectNil(t, err)
 	expectEquals(t, groups, []string{
 		"team-1",
@@ -38,10 +38,10 @@ func TestUserGroupsWithFiltering(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	c := gitlabConnector{baseURL: s.URL, groups: []string{"team-1"}}
 	groups, err := c.getGroups(context.Background(), newClient(), true, "joebloggs")
-
+	
 	expectNil(t, err)
 	expectEquals(t, groups, []string{
 		"team-1",
@@ -55,10 +55,10 @@ func TestUserGroupsWithoutOrgs(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	c := gitlabConnector{baseURL: s.URL}
 	groups, err := c.getGroups(context.Background(), newClient(), true, "joebloggs")
-
+	
 	expectNil(t, err)
 	expectEquals(t, len(groups), 0)
 }
@@ -76,24 +76,24 @@ func TestUsernameIncludedInFederatedIdentity(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	hostURL, err := url.Parse(s.URL)
 	expectNil(t, err)
-
+	
 	req, err := http.NewRequest("GET", hostURL.String(), nil)
 	expectNil(t, err)
-
+	
 	c := gitlabConnector{baseURL: s.URL, httpClient: newClient()}
 	identity, err := c.HandleCallback(connector.Scopes{Groups: false}, req)
-
+	
 	expectNil(t, err)
 	expectEquals(t, identity.Username, "some@email.com")
 	expectEquals(t, identity.UserID, "12345678")
 	expectEquals(t, 0, len(identity.Groups))
-
+	
 	c = gitlabConnector{baseURL: s.URL, httpClient: newClient()}
 	identity, err = c.HandleCallback(connector.Scopes{Groups: true}, req)
-
+	
 	expectNil(t, err)
 	expectEquals(t, identity.Username, "some@email.com")
 	expectEquals(t, identity.UserID, "12345678")
@@ -112,16 +112,16 @@ func TestLoginUsedAsIDWhenConfigured(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	hostURL, err := url.Parse(s.URL)
 	expectNil(t, err)
-
+	
 	req, err := http.NewRequest("GET", hostURL.String(), nil)
 	expectNil(t, err)
-
+	
 	c := gitlabConnector{baseURL: s.URL, httpClient: newClient(), useLoginAsID: true}
 	identity, err := c.HandleCallback(connector.Scopes{Groups: true}, req)
-
+	
 	expectNil(t, err)
 	expectEquals(t, identity.UserID, "joebloggs")
 	expectEquals(t, identity.Username, "Joe Bloggs")
@@ -139,16 +139,16 @@ func TestLoginWithTeamWhitelisted(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	hostURL, err := url.Parse(s.URL)
 	expectNil(t, err)
-
+	
 	req, err := http.NewRequest("GET", hostURL.String(), nil)
 	expectNil(t, err)
-
+	
 	c := gitlabConnector{baseURL: s.URL, httpClient: newClient(), groups: []string{"team-1"}}
 	identity, err := c.HandleCallback(connector.Scopes{Groups: true}, req)
-
+	
 	expectNil(t, err)
 	expectEquals(t, identity.UserID, "12345678")
 	expectEquals(t, identity.Username, "Joe Bloggs")
@@ -166,16 +166,16 @@ func TestLoginWithTeamNonWhitelisted(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	hostURL, err := url.Parse(s.URL)
 	expectNil(t, err)
-
+	
 	req, err := http.NewRequest("GET", hostURL.String(), nil)
 	expectNil(t, err)
-
+	
 	c := gitlabConnector{baseURL: s.URL, httpClient: newClient(), groups: []string{"team-2"}}
 	_, err = c.HandleCallback(connector.Scopes{Groups: true}, req)
-
+	
 	expectNotNil(t, err, "HandleCallback error")
 	expectEquals(t, err.Error(), "gitlab: get groups: gitlab: user \"joebloggs\" is not in any of the required groups")
 }
@@ -193,27 +193,27 @@ func TestRefresh(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	hostURL, err := url.Parse(s.URL)
 	expectNil(t, err)
-
+	
 	req, err := http.NewRequest("GET", hostURL.String(), nil)
 	expectNil(t, err)
-
+	
 	c := gitlabConnector{baseURL: s.URL, httpClient: newClient()}
-
+	
 	expectedConnectorData, err := json.Marshal(connectorData{
 		RefreshToken: "oRzxVjCnohYRHEYEhZshkmakKmoyVoTjfUGC",
 		AccessToken:  "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9",
 	})
 	expectNil(t, err)
-
+	
 	identity, err := c.HandleCallback(connector.Scopes{OfflineAccess: true}, req)
 	expectNil(t, err)
 	expectEquals(t, identity.Username, "some@email.com")
 	expectEquals(t, identity.UserID, "12345678")
 	expectEquals(t, identity.ConnectorData, expectedConnectorData)
-
+	
 	identity, err = c.Refresh(context.Background(), connector.Scopes{OfflineAccess: true}, identity)
 	expectNil(t, err)
 	expectEquals(t, identity.Username, "some@email.com")
@@ -234,16 +234,16 @@ func TestRefreshWithEmptyConnectorData(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	emptyConnectorData, err := json.Marshal(connectorData{
 		RefreshToken: "",
 		AccessToken:  "",
 	})
 	expectNil(t, err)
-
+	
 	c := gitlabConnector{baseURL: s.URL, httpClient: newClient()}
 	emptyIdentity := connector.Identity{ConnectorData: emptyConnectorData}
-
+	
 	identity, err := c.Refresh(context.Background(), connector.Scopes{OfflineAccess: true}, emptyIdentity)
 	expectNotNil(t, err, "Refresh error")
 	expectEquals(t, emptyIdentity, identity)

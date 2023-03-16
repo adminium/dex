@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
+	
 	"github.com/stretchr/testify/assert"
-
-	"github.com/dexidp/dex/pkg/httpclient"
+	
+	"github.com/adminium/dex/pkg/httpclient"
 )
 
 func TestRootCAs(t *testing.T) {
@@ -19,18 +19,18 @@ func TestRootCAs(t *testing.T) {
 	}))
 	assert.Nil(t, err)
 	defer ts.Close()
-
+	
 	rootCAs := []string{"testdata/rootCA.pem"}
 	testClient, err := httpclient.NewHTTPClient(rootCAs, false)
 	assert.Nil(t, err)
-
+	
 	res, err := testClient.Get(ts.URL)
 	assert.Nil(t, err)
-
+	
 	greeting, err := io.ReadAll(res.Body)
 	res.Body.Close()
 	assert.Nil(t, err)
-
+	
 	assert.Equal(t, "Hello, client", string(greeting))
 }
 
@@ -40,19 +40,19 @@ func TestInsecureSkipVerify(t *testing.T) {
 	}))
 	assert.Nil(t, err)
 	defer ts.Close()
-
+	
 	insecureSkipVerify := true
-
+	
 	testClient, err := httpclient.NewHTTPClient(nil, insecureSkipVerify)
 	assert.Nil(t, err)
-
+	
 	res, err := testClient.Get(ts.URL)
 	assert.Nil(t, err)
-
+	
 	greeting, err := io.ReadAll(res.Body)
 	res.Body.Close()
 	assert.Nil(t, err)
-
+	
 	assert.Equal(t, "Hello, client", string(greeting))
 }
 

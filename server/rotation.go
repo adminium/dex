@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"io"
 	"time"
-
+	
 	"gopkg.in/square/go-jose.v2"
-
-	"github.com/dexidp/dex/pkg/log"
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/pkg/log"
+	"github.com/adminium/dex/storage"
 )
 
 var errAlreadyRotated = errors.New("keys already rotated by another server instance")
@@ -23,11 +23,11 @@ var errAlreadyRotated = errors.New("keys already rotated by another server insta
 type rotationStrategy struct {
 	// Time between rotations.
 	rotationFrequency time.Duration
-
+	
 	// After being rotated how long should the key be kept around for validating
 	// signatures?
 	idTokenValidFor time.Duration
-
+	
 	// Keys are always RSA keys. Though cryptopasta recommends ECDSA keys, not every
 	// client may support these (e.g. github.com/coreos/go-oidc/oidc).
 	key func() (*rsa.PrivateKey, error)
@@ -57,10 +57,10 @@ func defaultRotationStrategy(rotationFrequency, idTokenValidFor time.Duration) r
 
 type keyRotator struct {
 	storage.Storage
-
+	
 	strategy rotationStrategy
 	now      func() time.Time
-
+	
 	logger log.Logger
 }
 
@@ -70,7 +70,7 @@ type keyRotator struct {
 // healthy storages will return from this call with valid keys.
 func (s *Server) startKeyRotation(ctx context.Context, strategy rotationStrategy, now func() time.Time) {
 	rotator := keyRotator{s.storage, strategy, now, s.logger}
-
+	
 	// Try to rotate immediately so properly configured storages will have keys.
 	if err := rotator.rotate(); err != nil {
 		if err == errAlreadyRotated {
@@ -79,7 +79,7 @@ func (s *Server) startKeyRotation(ctx context.Context, strategy rotationStrategy
 			s.logger.Errorf("failed to rotate keys: %v", err)
 		}
 	}
-
+	
 	go func() {
 		for {
 			select {
@@ -103,7 +103,7 @@ func (k keyRotator) rotate() error {
 		return nil
 	}
 	k.logger.Infof("keys expired, rotating")
-
+	
 	// Generate the key outside of a storage transaction.
 	key, err := k.strategy.key()
 	if err != nil {
@@ -126,21 +126,21 @@ func (k keyRotator) rotate() error {
 		Algorithm: "RS256",
 		Use:       "sig",
 	}
-
+	
 	var nextRotation time.Time
 	err = k.Storage.UpdateKeys(func(keys storage.Keys) (storage.Keys, error) {
 		tNow := k.now()
-
+		
 		// if you are running multiple instances of dex, another instance
 		// could have already rotated the keys.
 		if tNow.Before(keys.NextRotation) {
 			return storage.Keys{}, errAlreadyRotated
 		}
-
+		
 		expired := func(key storage.VerificationKey) bool {
 			return tNow.After(key.Expiry)
 		}
-
+		
 		// Remove any verification keys that have expired.
 		i := 0
 		for _, key := range keys.VerificationKeys {
@@ -150,7 +150,7 @@ func (k keyRotator) rotate() error {
 			}
 		}
 		keys.VerificationKeys = keys.VerificationKeys[:i]
-
+		
 		if keys.SigningKeyPub != nil {
 			// Move current signing key to a verification only key, throwing
 			// away the private part.
@@ -164,7 +164,7 @@ func (k keyRotator) rotate() error {
 			}
 			keys.VerificationKeys = append(keys.VerificationKeys, verificationKey)
 		}
-
+		
 		nextRotation = k.now().Add(k.strategy.rotationFrequency)
 		keys.SigningKey = priv
 		keys.SigningKeyPub = pub
@@ -180,20 +180,20 @@ func (k keyRotator) rotate() error {
 
 type RefreshTokenPolicy struct {
 	rotateRefreshTokens bool // enable rotation
-
+	
 	absoluteLifetime  time.Duration // interval from token creation to the end of its life
 	validIfNotUsedFor time.Duration // interval from last token update to the end of its life
 	reuseInterval     time.Duration // interval within which old refresh token is allowed to be reused
-
+	
 	now func() time.Time
-
+	
 	logger log.Logger
 }
 
 func NewRefreshTokenPolicy(logger log.Logger, rotation bool, validIfNotUsedFor, absoluteLifetime, reuseInterval string) (*RefreshTokenPolicy, error) {
 	r := RefreshTokenPolicy{now: time.Now, logger: logger}
 	var err error
-
+	
 	if validIfNotUsedFor != "" {
 		r.validIfNotUsedFor, err = time.ParseDuration(validIfNotUsedFor)
 		if err != nil {
@@ -201,7 +201,7 @@ func NewRefreshTokenPolicy(logger log.Logger, rotation bool, validIfNotUsedFor, 
 		}
 		logger.Infof("config refresh tokens valid if not used for: %v", validIfNotUsedFor)
 	}
-
+	
 	if absoluteLifetime != "" {
 		r.absoluteLifetime, err = time.ParseDuration(absoluteLifetime)
 		if err != nil {
@@ -209,7 +209,7 @@ func NewRefreshTokenPolicy(logger log.Logger, rotation bool, validIfNotUsedFor, 
 		}
 		logger.Infof("config refresh tokens absolute lifetime: %v", absoluteLifetime)
 	}
-
+	
 	if reuseInterval != "" {
 		r.reuseInterval, err = time.ParseDuration(reuseInterval)
 		if err != nil {
@@ -217,7 +217,7 @@ func NewRefreshTokenPolicy(logger log.Logger, rotation bool, validIfNotUsedFor, 
 		}
 		logger.Infof("config refresh tokens reuse interval: %v", reuseInterval)
 	}
-
+	
 	r.rotateRefreshTokens = !rotation
 	logger.Infof("config refresh tokens rotation enabled: %v", r.rotateRefreshTokens)
 	return &r, nil

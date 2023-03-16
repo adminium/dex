@@ -10,25 +10,25 @@ import (
 	"reflect"
 	"testing"
 	"time"
-
+	
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
-
-	"github.com/dexidp/dex/connector"
-	"github.com/dexidp/dex/pkg/httpclient"
-	"github.com/dexidp/dex/storage/kubernetes/k8sapi"
+	
+	"github.com/adminium/dex/connector"
+	"github.com/adminium/dex/pkg/httpclient"
+	"github.com/adminium/dex/storage/kubernetes/k8sapi"
 )
 
 func TestOpen(t *testing.T) {
 	s := newTestServer(map[string]interface{}{})
 	defer s.Close()
-
+	
 	hostURL, err := url.Parse(s.URL)
 	expectNil(t, err)
-
+	
 	_, err = http.NewRequest("GET", hostURL.String(), nil)
 	expectNil(t, err)
-
+	
 	c := Config{
 		Issuer:       s.URL,
 		ClientID:     "testClientId",
@@ -36,13 +36,13 @@ func TestOpen(t *testing.T) {
 		RedirectURI:  "https://localhost/callback",
 		InsecureCA:   true,
 	}
-
+	
 	logger := logrus.New()
-
+	
 	oconfig, err := c.Open("id", logger)
-
+	
 	oc, ok := oconfig.(*openshiftConnector)
-
+	
 	expectNil(t, err)
 	expectEquals(t, ok, true)
 	expectEquals(t, oc.apiURL, s.URL)
@@ -64,20 +64,20 @@ func TestGetUser(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	hostURL, err := url.Parse(s.URL)
 	expectNil(t, err)
-
+	
 	_, err = http.NewRequest("GET", hostURL.String(), nil)
 	expectNil(t, err)
-
+	
 	h, err := httpclient.NewHTTPClient(nil, true)
-
+	
 	expectNil(t, err)
-
+	
 	oc := openshiftConnector{apiURL: s.URL, httpClient: h}
 	u, err := oc.user(context.Background(), h)
-
+	
 	expectNil(t, err)
 	expectEquals(t, u.Name, "jdoe")
 	expectEquals(t, u.FullName, "John Doe")
@@ -87,27 +87,27 @@ func TestGetUser(t *testing.T) {
 func TestVerifySingleGroupFn(t *testing.T) {
 	allowedGroups := []string{"users"}
 	groupMembership := []string{"users", "org1"}
-
+	
 	validGroupMembership := validateAllowedGroups(groupMembership, allowedGroups)
-
+	
 	expectEquals(t, validGroupMembership, true)
 }
 
 func TestVerifySingleGroupFailureFn(t *testing.T) {
 	allowedGroups := []string{"admins"}
 	groupMembership := []string{"users"}
-
+	
 	validGroupMembership := validateAllowedGroups(groupMembership, allowedGroups)
-
+	
 	expectEquals(t, validGroupMembership, false)
 }
 
 func TestVerifyMultipleGroupFn(t *testing.T) {
 	allowedGroups := []string{"users", "admins"}
 	groupMembership := []string{"users", "org1"}
-
+	
 	validGroupMembership := validateAllowedGroups(groupMembership, allowedGroups)
-
+	
 	expectEquals(t, validGroupMembership, true)
 }
 
@@ -122,20 +122,20 @@ func TestVerifyGroup(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	hostURL, err := url.Parse(s.URL)
 	expectNil(t, err)
-
+	
 	_, err = http.NewRequest("GET", hostURL.String(), nil)
 	expectNil(t, err)
-
+	
 	h, err := httpclient.NewHTTPClient(nil, true)
-
+	
 	expectNil(t, err)
-
+	
 	oc := openshiftConnector{apiURL: s.URL, httpClient: h}
 	u, err := oc.user(context.Background(), h)
-
+	
 	expectNil(t, err)
 	expectEquals(t, u.Name, "jdoe")
 	expectEquals(t, u.FullName, "John Doe")
@@ -158,17 +158,17 @@ func TestCallbackIdentity(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	hostURL, err := url.Parse(s.URL)
 	expectNil(t, err)
-
+	
 	req, err := http.NewRequest("GET", hostURL.String(), nil)
 	expectNil(t, err)
-
+	
 	h, err := httpclient.NewHTTPClient(nil, true)
-
+	
 	expectNil(t, err)
-
+	
 	oc := openshiftConnector{apiURL: s.URL, httpClient: h, oauth2Config: &oauth2.Config{
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  fmt.Sprintf("%s/oauth/authorize", s.URL),
@@ -176,7 +176,7 @@ func TestCallbackIdentity(t *testing.T) {
 		},
 	}}
 	identity, err := oc.HandleCallback(connector.Scopes{Groups: true}, req)
-
+	
 	expectNil(t, err)
 	expectEquals(t, identity.UserID, "12345")
 	expectEquals(t, identity.Username, "jdoe")
@@ -198,24 +198,24 @@ func TestRefreshIdentity(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	h, err := httpclient.NewHTTPClient(nil, true)
 	expectNil(t, err)
-
+	
 	oc := openshiftConnector{apiURL: s.URL, httpClient: h, oauth2Config: &oauth2.Config{
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  fmt.Sprintf("%s/oauth/authorize", s.URL),
 			TokenURL: fmt.Sprintf("%s/oauth/token", s.URL),
 		},
 	}}
-
+	
 	data, err := json.Marshal(oauth2.Token{AccessToken: "fFAGRNJru1FTz70BzhT3Zg"})
 	expectNil(t, err)
-
+	
 	oldID := connector.Identity{ConnectorData: data}
-
+	
 	identity, err := oc.Refresh(context.Background(), connector.Scopes{Groups: true}, oldID)
-
+	
 	expectNil(t, err)
 	expectEquals(t, identity.UserID, "12345")
 	expectEquals(t, identity.Username, "jdoe")
@@ -237,22 +237,22 @@ func TestRefreshIdentityFailure(t *testing.T) {
 		},
 	})
 	defer s.Close()
-
+	
 	h, err := httpclient.NewHTTPClient(nil, true)
 	expectNil(t, err)
-
+	
 	oc := openshiftConnector{apiURL: s.URL, httpClient: h, oauth2Config: &oauth2.Config{
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  fmt.Sprintf("%s/oauth/authorize", s.URL),
 			TokenURL: fmt.Sprintf("%s/oauth/token", s.URL),
 		},
 	}}
-
+	
 	data, err := json.Marshal(oauth2.Token{AccessToken: "oRzxVjCnohYRHEYEhZshkmakKmoyVoTjfUGC", Expiry: time.Now().Add(-time.Hour)})
 	expectNil(t, err)
-
+	
 	oldID := connector.Identity{ConnectorData: data}
-
+	
 	identity, err := oc.Refresh(context.Background(), connector.Scopes{Groups: true}, oldID)
 	expectNotNil(t, err)
 	expectEquals(t, connector.Identity{}, identity)
@@ -270,12 +270,12 @@ func newTestServer(responses map[string]interface{}) *httptest.Server {
 			"grant_types_supported":            []string{"authorization_code", "implicit"},
 			"code_challenge_methods_supported": []string{"plain", "S256"},
 		}
-
+		
 		response := responses[r.RequestURI]
 		w.Header().Add("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 	}))
-
+	
 	return s
 }
 

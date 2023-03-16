@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"reflect"
 	"testing"
-
+	
 	"github.com/sirupsen/logrus"
-
-	"github.com/dexidp/dex/connector"
+	
+	"github.com/adminium/dex/connector"
 )
 
 const (
@@ -28,16 +28,16 @@ func TestUser(t *testing.T) {
 		UserHeader: "X-Remote-User",
 	}
 	conn := callback{userHeader: config.UserHeader, logger: logger, pathSuffix: "/test"}
-
+	
 	req, err := http.NewRequest("GET", "/", nil)
 	expectNil(t, err)
 	req.Header = map[string][]string{
 		"X-Remote-User": {testEmail},
 	}
-
+	
 	ident, err := conn.HandleCallback(connector.Scopes{OfflineAccess: true, Groups: true}, req)
 	expectNil(t, err)
-
+	
 	expectEquals(t, ident.UserID, testEmail)
 	expectEquals(t, ident.Email, testEmail)
 	expectEquals(t, len(ident.Groups), 0)
@@ -48,19 +48,19 @@ func TestSingleGroup(t *testing.T) {
 		UserHeader:  "X-Remote-User",
 		GroupHeader: "X-Remote-Group",
 	}
-
+	
 	conn := callback{userHeader: config.UserHeader, groupHeader: config.GroupHeader, logger: logger, pathSuffix: "/test"}
-
+	
 	req, err := http.NewRequest("GET", "/", nil)
 	expectNil(t, err)
 	req.Header = map[string][]string{
 		"X-Remote-User":  {testEmail},
 		"X-Remote-Group": {testGroup1},
 	}
-
+	
 	ident, err := conn.HandleCallback(connector.Scopes{OfflineAccess: true, Groups: true}, req)
 	expectNil(t, err)
-
+	
 	expectEquals(t, ident.UserID, testEmail)
 	expectEquals(t, len(ident.Groups), 1)
 	expectEquals(t, ident.Groups[0], testGroup1)
@@ -71,19 +71,19 @@ func TestMultipleGroup(t *testing.T) {
 		UserHeader:  "X-Remote-User",
 		GroupHeader: "X-Remote-Group",
 	}
-
+	
 	conn := callback{userHeader: config.UserHeader, groupHeader: config.GroupHeader, logger: logger, pathSuffix: "/test"}
-
+	
 	req, err := http.NewRequest("GET", "/", nil)
 	expectNil(t, err)
 	req.Header = map[string][]string{
 		"X-Remote-User":  {testEmail},
 		"X-Remote-Group": {testGroup1 + ", " + testGroup2 + ", " + testGroup3 + ", " + testGroup4},
 	}
-
+	
 	ident, err := conn.HandleCallback(connector.Scopes{OfflineAccess: true, Groups: true}, req)
 	expectNil(t, err)
-
+	
 	expectEquals(t, ident.UserID, testEmail)
 	expectEquals(t, len(ident.Groups), 4)
 	expectEquals(t, ident.Groups[0], testGroup1)
@@ -98,19 +98,19 @@ func TestStaticGroup(t *testing.T) {
 		GroupHeader: "X-Remote-Group",
 		Groups:      []string{"static1", "static 2"},
 	}
-
+	
 	conn := callback{userHeader: config.UserHeader, groupHeader: config.GroupHeader, groups: config.Groups, logger: logger, pathSuffix: "/test"}
-
+	
 	req, err := http.NewRequest("GET", "/", nil)
 	expectNil(t, err)
 	req.Header = map[string][]string{
 		"X-Remote-User":  {testEmail},
 		"X-Remote-Group": {testGroup1 + ", " + testGroup2 + ", " + testGroup3 + ", " + testGroup4},
 	}
-
+	
 	ident, err := conn.HandleCallback(connector.Scopes{OfflineAccess: true, Groups: true}, req)
 	expectNil(t, err)
-
+	
 	expectEquals(t, ident.UserID, testEmail)
 	expectEquals(t, len(ident.Groups), 6)
 	expectEquals(t, ident.Groups[0], testGroup1)

@@ -12,12 +12,12 @@ import (
 	"strings"
 	"sync"
 	"time"
-
+	
 	"golang.org/x/oauth2"
-
-	"github.com/dexidp/dex/connector"
-	groups_pkg "github.com/dexidp/dex/pkg/groups"
-	"github.com/dexidp/dex/pkg/log"
+	
+	"github.com/adminium/dex/connector"
+	groups_pkg "github.com/adminium/dex/pkg/groups"
+	"github.com/adminium/dex/pkg/log"
 )
 
 // GroupNameFormat represents the format of the group identifier
@@ -53,12 +53,12 @@ type Config struct {
 	GroupNameFormat      GroupNameFormat `json:"groupNameFormat"`
 	UseGroupsAsWhitelist bool            `json:"useGroupsAsWhitelist"`
 	EmailToLowercase     bool            `json:"emailToLowercase"`
-
+	
 	// PromptType is used for the prompt query parameter.
 	// For valid values, see https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-auth-code-flow#request-an-authorization-code.
 	PromptType string `json:"promptType"`
 	DomainHint string `json:"domainHint"`
-
+	
 	Scopes []string `json:"scopes"` // defaults to scopeUser (user.read)
 }
 
@@ -86,7 +86,7 @@ func (c *Config) Open(id string, logger log.Logger) (connector.Connector, error)
 	if m.tenant == "" {
 		m.tenant = "common"
 	}
-
+	
 	// By default, use group names
 	switch m.groupNameFormat {
 	case "":
@@ -95,7 +95,7 @@ func (c *Config) Open(id string, logger log.Logger) (connector.Connector, error)
 	default:
 		return nil, fmt.Errorf("invalid groupNameFormat: %s", m.groupNameFormat)
 	}
-
+	
 	return &m, nil
 }
 
@@ -146,11 +146,11 @@ func (c *microsoftConnector) oauth2Config(scopes connector.Scopes) *oauth2.Confi
 	if c.groupsRequired(scopes.Groups) {
 		microsoftScopes = append(microsoftScopes, scopeGroups)
 	}
-
+	
 	if scopes.OfflineAccess {
 		microsoftScopes = append(microsoftScopes, scopeOfflineAccess)
 	}
-
+	
 	return &oauth2.Config{
 		ClientID:     c.clientID,
 		ClientSecret: c.clientSecret,
@@ -167,7 +167,7 @@ func (c *microsoftConnector) LoginURL(scopes connector.Scopes, callbackURL, stat
 	if c.redirectURI != callbackURL {
 		return "", fmt.Errorf("expected callback URL %q did not match the URL in the config %q", callbackURL, c.redirectURI)
 	}
-
+	
 	var options []oauth2.AuthCodeOption
 	if c.promptType != "" {
 		options = append(options, oauth2.SetAuthURLParam("prompt", c.promptType))
@@ -175,7 +175,7 @@ func (c *microsoftConnector) LoginURL(scopes connector.Scopes, callbackURL, stat
 	if c.domainHint != "" {
 		options = append(options, oauth2.SetAuthURLParam("domain_hint", c.domainHint))
 	}
-
+	
 	return c.oauth2Config(scopes).AuthCodeURL(state, options...), nil
 }
 
@@ -184,34 +184,34 @@ func (c *microsoftConnector) HandleCallback(s connector.Scopes, r *http.Request)
 	if errType := q.Get("error"); errType != "" {
 		return identity, &oauth2Error{errType, q.Get("error_description")}
 	}
-
+	
 	oauth2Config := c.oauth2Config(s)
-
+	
 	ctx := r.Context()
-
+	
 	token, err := oauth2Config.Exchange(ctx, q.Get("code"))
 	if err != nil {
 		return identity, fmt.Errorf("microsoft: failed to get token: %v", err)
 	}
-
+	
 	client := oauth2Config.Client(ctx, token)
-
+	
 	user, err := c.user(ctx, client)
 	if err != nil {
 		return identity, fmt.Errorf("microsoft: get user: %v", err)
 	}
-
+	
 	if c.emailToLowercase {
 		user.Email = strings.ToLower(user.Email)
 	}
-
+	
 	identity = connector.Identity{
 		UserID:        user.ID,
 		Username:      user.Name,
 		Email:         user.Email,
 		EmailVerified: true,
 	}
-
+	
 	if c.groupsRequired(s.Groups) {
 		groups, err := c.getGroups(ctx, client, user.ID)
 		if err != nil {
@@ -219,7 +219,7 @@ func (c *microsoftConnector) HandleCallback(s connector.Scopes, r *http.Request)
 		}
 		identity.Groups = groups
 	}
-
+	
 	if s.OfflineAccess {
 		data := connectorData{
 			AccessToken:  token.AccessToken,
@@ -232,7 +232,7 @@ func (c *microsoftConnector) HandleCallback(s connector.Scopes, r *http.Request)
 		}
 		identity.ConnectorData = connData
 	}
-
+	
 	return identity, nil
 }
 
@@ -267,7 +267,7 @@ func (c *microsoftConnector) Refresh(ctx context.Context, s connector.Scopes, id
 	if len(identity.ConnectorData) == 0 {
 		return identity, errors.New("microsoft: no upstream access token found")
 	}
-
+	
 	var data connectorData
 	if err := json.Unmarshal(identity.ConnectorData, &data); err != nil {
 		return identity, fmt.Errorf("microsoft: unmarshal access token: %v", err)
@@ -277,7 +277,7 @@ func (c *microsoftConnector) Refresh(ctx context.Context, s connector.Scopes, id
 		RefreshToken: data.RefreshToken,
 		Expiry:       data.Expiry,
 	}
-
+	
 	client := oauth2.NewClient(ctx, &notifyRefreshTokenSource{
 		new: c.oauth2Config(s).TokenSource(ctx, tok),
 		t:   tok,
@@ -299,10 +299,10 @@ func (c *microsoftConnector) Refresh(ctx context.Context, s connector.Scopes, id
 	if err != nil {
 		return identity, fmt.Errorf("microsoft: get user: %v", err)
 	}
-
+	
 	identity.Username = user.Name
 	identity.Email = user.Email
-
+	
 	if c.groupsRequired(s.Groups) {
 		groups, err := c.getGroups(ctx, client, user.ID)
 		if err != nil {
@@ -310,7 +310,7 @@ func (c *microsoftConnector) Refresh(ctx context.Context, s connector.Scopes, id
 		}
 		identity.Groups = groups
 	}
-
+	
 	return identity, nil
 }
 
@@ -349,21 +349,21 @@ func (c *microsoftConnector) user(ctx context.Context, client *http.Client) (u u
 	if err != nil {
 		return u, fmt.Errorf("new req: %v", err)
 	}
-
+	
 	resp, err := client.Do(req.WithContext(ctx))
 	if err != nil {
 		return u, fmt.Errorf("get URL %v", err)
 	}
 	defer resp.Body.Close()
-
+	
 	if resp.StatusCode != http.StatusOK {
 		return u, newGraphError(resp.Body)
 	}
-
+	
 	if err := json.NewDecoder(resp.Body).Decode(&u); err != nil {
 		return u, fmt.Errorf("JSON decode: %v", err)
 	}
-
+	
 	return u, err
 }
 
@@ -381,14 +381,14 @@ func (c *microsoftConnector) getGroups(ctx context.Context, client *http.Client,
 	if err != nil {
 		return nil, err
 	}
-
+	
 	if c.groupNameFormat == GroupName {
 		userGroups, err = c.getGroupNames(ctx, client, userGroups)
 		if err != nil {
 			return nil, err
 		}
 	}
-
+	
 	// ensure that the user is in at least one required group
 	filteredGroups := groups_pkg.Filter(userGroups, c.groups)
 	if len(c.groups) > 0 && len(filteredGroups) == 0 {
@@ -396,7 +396,7 @@ func (c *microsoftConnector) getGroups(ctx context.Context, client *http.Client,
 	} else if c.useGroupsAsWhitelist {
 		return filteredGroups, nil
 	}
-
+	
 	return userGroups, nil
 }
 
@@ -409,12 +409,12 @@ func (c *microsoftConnector) getGroupIDs(ctx context.Context, client *http.Clien
 	for {
 		var out []string
 		var next string
-
+		
 		next, err = c.post(ctx, client, reqURL, in, &out)
 		if err != nil {
 			return ids, err
 		}
-
+		
 		ids = append(ids, out...)
 		if next == "" {
 			return
@@ -427,7 +427,7 @@ func (c *microsoftConnector) getGroupNames(ctx context.Context, client *http.Cli
 	if len(ids) == 0 {
 		return
 	}
-
+	
 	// https://developer.microsoft.com/en-us/graph/docs/api-reference/v1.0/api/directoryobject_getbyids
 	in := &struct {
 		IDs   []string `json:"ids"`
@@ -437,12 +437,12 @@ func (c *microsoftConnector) getGroupNames(ctx context.Context, client *http.Cli
 	for {
 		var out []group
 		var next string
-
+		
 		next, err = c.post(ctx, client, reqURL, in, &out)
 		if err != nil {
 			return groups, err
 		}
-
+		
 		for _, g := range out {
 			groups = append(groups, g.Name)
 		}
@@ -455,28 +455,28 @@ func (c *microsoftConnector) getGroupNames(ctx context.Context, client *http.Cli
 
 func (c *microsoftConnector) post(ctx context.Context, client *http.Client, reqURL string, in interface{}, out interface{}) (string, error) {
 	var payload bytes.Buffer
-
+	
 	err := json.NewEncoder(&payload).Encode(in)
 	if err != nil {
 		return "", fmt.Errorf("microsoft: JSON encode: %v", err)
 	}
-
+	
 	req, err := http.NewRequest("POST", reqURL, &payload)
 	if err != nil {
 		return "", fmt.Errorf("new req: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-
+	
 	resp, err := client.Do(req.WithContext(ctx))
 	if err != nil {
 		return "", fmt.Errorf("post URL %v", err)
 	}
 	defer resp.Body.Close()
-
+	
 	if resp.StatusCode != http.StatusOK {
 		return "", newGraphError(resp.Body)
 	}
-
+	
 	var next string
 	if err = json.NewDecoder(resp.Body).Decode(&struct {
 		NextLink *string     `json:"@odata.nextLink"`
@@ -484,7 +484,7 @@ func (c *microsoftConnector) post(ctx context.Context, client *http.Client, reqU
 	}{&next, out}); err != nil {
 		return "", fmt.Errorf("JSON decode: %v", err)
 	}
-
+	
 	return next, nil
 }
 

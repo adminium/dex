@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-
-	"github.com/dexidp/dex/connector"
-	"github.com/dexidp/dex/pkg/log"
+	
+	"github.com/adminium/dex/connector"
+	"github.com/adminium/dex/pkg/log"
 )
 
 type conn struct {
@@ -155,7 +155,7 @@ func (p *conn) Login(ctx context.Context, scopes connector.Scopes, username, pas
 	}
 	identity.Username = username
 	identity.UserID = tokenResp.Token.User.ID
-
+	
 	user, err := p.getUser(ctx, tokenResp.Token.User.ID, token)
 	if err != nil {
 		return identity, false, err
@@ -164,7 +164,7 @@ func (p *conn) Login(ctx context.Context, scopes connector.Scopes, username, pas
 		identity.Email = user.User.Email
 		identity.EmailVerified = true
 	}
-
+	
 	return identity, true, nil
 }
 
@@ -219,10 +219,10 @@ func (p *conn) getTokenResponse(ctx context.Context, username, pass string) (res
 	if err != nil {
 		return nil, err
 	}
-
+	
 	req.Header.Set("Content-Type", "application/json")
 	req = req.WithContext(ctx)
-
+	
 	return p.client.Do(req)
 }
 
@@ -232,7 +232,7 @@ func (p *conn) getAdminToken(ctx context.Context) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
-
+	
 	token := resp.Header.Get("X-Subject-Token")
 	return token, nil
 }
@@ -249,7 +249,7 @@ func (p *conn) getUser(ctx context.Context, userID string, token string) (*userR
 	if err != nil {
 		return nil, err
 	}
-
+	
 	req.Header.Set("X-Auth-Token", token)
 	req = req.WithContext(ctx)
 	resp, err := p.client.Do(req)
@@ -257,22 +257,22 @@ func (p *conn) getUser(ctx context.Context, userID string, token string) (*userR
 		return nil, err
 	}
 	defer resp.Body.Close()
-
+	
 	if resp.StatusCode != 200 {
 		return nil, err
 	}
-
+	
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-
+	
 	user := userResponse{}
 	err = json.Unmarshal(data, &user)
 	if err != nil {
 		return nil, err
 	}
-
+	
 	return &user, nil
 }
 
@@ -290,20 +290,20 @@ func (p *conn) getUserGroups(ctx context.Context, userID string, token string) (
 		p.Logger.Errorf("keystone: error while fetching user %q groups\n", userID)
 		return nil, err
 	}
-
+	
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-
+	
 	groupsResp := new(groupsResponse)
-
+	
 	err = json.Unmarshal(data, &groupsResp)
 	if err != nil {
 		return nil, err
 	}
-
+	
 	groups := make([]string, len(groupsResp.Groups))
 	for i, group := range groupsResp.Groups {
 		groups[i] = group.Name

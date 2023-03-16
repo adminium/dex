@@ -20,12 +20,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
+	
 	jose "gopkg.in/square/go-jose.v2"
-
-	"github.com/dexidp/dex/connector"
-	"github.com/dexidp/dex/server/internal"
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/connector"
+	"github.com/adminium/dex/server/internal"
+	"github.com/adminium/dex/storage"
 )
 
 // TODO(ericchiang): clean this file up and figure out more idiomatic error handling.
@@ -171,7 +171,7 @@ func signatureAlgorithm(jwk *jose.JSONWebKey) (alg jose.SignatureAlgorithm, err 
 		// value. In the future, we might want to make this configurable on a
 		// per client basis. For example allowing PS256 or ECDSA variants.
 		//
-		// See https://github.com/dexidp/dex/issues/692
+		// See https://github.com/adminium/dex/issues/692
 		return jose.RS256, nil
 	case *ecdsa.PrivateKey:
 		// We don't actually support ECDSA keys yet, but they're tested for
@@ -196,7 +196,7 @@ func signatureAlgorithm(jwk *jose.JSONWebKey) (alg jose.SignatureAlgorithm, err 
 
 func signPayload(key *jose.JSONWebKey, alg jose.SignatureAlgorithm, payload []byte) (jws string, err error) {
 	signingKey := jose.SigningKey{Key: key, Algorithm: alg}
-
+	
 	signer, err := jose.NewSigner(signingKey, &jose.SignerOptions{})
 	if err != nil {
 		return "", fmt.Errorf("new signer: %v", err)
@@ -233,7 +233,7 @@ func accessTokenHash(alg jose.SignatureAlgorithm, accessToken string) (string, e
 	if !ok {
 		return "", fmt.Errorf("unsupported signature algorithm: %s", alg)
 	}
-
+	
 	hashFunc := newHash()
 	if _, err := io.WriteString(hashFunc, accessToken); err != nil {
 		return "", fmt.Errorf("computing hash: %v", err)
@@ -268,18 +268,18 @@ type idTokenClaims struct {
 	IssuedAt         int64    `json:"iat"`
 	AuthorizingParty string   `json:"azp,omitempty"`
 	Nonce            string   `json:"nonce,omitempty"`
-
+	
 	AccessTokenHash string `json:"at_hash,omitempty"`
 	CodeHash        string `json:"c_hash,omitempty"`
-
+	
 	Email         string `json:"email,omitempty"`
 	EmailVerified *bool  `json:"email_verified,omitempty"`
-
+	
 	Groups []string `json:"groups,omitempty"`
-
+	
 	Name              string `json:"name,omitempty"`
 	PreferredUsername string `json:"preferred_username,omitempty"`
-
+	
 	FederatedIDClaims *federatedIDClaims `json:"federated_claims,omitempty"`
 }
 
@@ -299,7 +299,7 @@ func (s *Server) newIDToken(clientID string, claims storage.Claims, scopes []str
 		s.logger.Errorf("Failed to get keys: %v", err)
 		return "", expiry, err
 	}
-
+	
 	signingKey := keys.SigningKey
 	if signingKey == nil {
 		return "", expiry, fmt.Errorf("no key to sign payload with")
@@ -308,21 +308,21 @@ func (s *Server) newIDToken(clientID string, claims storage.Claims, scopes []str
 	if err != nil {
 		return "", expiry, err
 	}
-
+	
 	issuedAt := s.now()
 	expiry = issuedAt.Add(s.idTokensValidFor)
-
+	
 	sub := &internal.IDTokenSubject{
 		UserId: claims.UserID,
 		ConnId: connID,
 	}
-
+	
 	subjectString, err := internal.Marshal(sub)
 	if err != nil {
 		s.logger.Errorf("failed to marshal offline session ID: %v", err)
 		return "", expiry, fmt.Errorf("failed to marshal offline session ID: %v", err)
 	}
-
+	
 	tok := idTokenClaims{
 		Issuer:   s.issuerURL.String(),
 		Subject:  subjectString,
@@ -330,7 +330,7 @@ func (s *Server) newIDToken(clientID string, claims storage.Claims, scopes []str
 		Expiry:   expiry.Unix(),
 		IssuedAt: issuedAt.Unix(),
 	}
-
+	
 	if accessToken != "" {
 		atHash, err := accessTokenHash(signingAlg, accessToken)
 		if err != nil {
@@ -339,7 +339,7 @@ func (s *Server) newIDToken(clientID string, claims storage.Claims, scopes []str
 		}
 		tok.AccessTokenHash = atHash
 	}
-
+	
 	if code != "" {
 		cHash, err := accessTokenHash(signingAlg, code)
 		if err != nil {
@@ -348,7 +348,7 @@ func (s *Server) newIDToken(clientID string, claims storage.Claims, scopes []str
 		}
 		tok.CodeHash = cHash
 	}
-
+	
 	for _, scope := range scopes {
 		switch {
 		case scope == scopeEmail:
@@ -382,7 +382,7 @@ func (s *Server) newIDToken(clientID string, claims storage.Claims, scopes []str
 			tok.Audience = append(tok.Audience, peerID)
 		}
 	}
-
+	
 	if len(tok.Audience) == 0 {
 		// Client didn't ask for cross client audience. Set the current
 		// client as the audience.
@@ -397,12 +397,12 @@ func (s *Server) newIDToken(clientID string, claims storage.Claims, scopes []str
 		// The current client becomes the authorizing party.
 		tok.AuthorizingParty = clientID
 	}
-
+	
 	payload, err := json.Marshal(tok)
 	if err != nil {
 		return "", expiry, fmt.Errorf("could not serialize claims: %v", err)
 	}
-
+	
 	if idToken, err = signPayload(signingKey, signingAlg, payload); err != nil {
 		return "", expiry, fmt.Errorf("failed to sign payload: %v", err)
 	}
@@ -419,7 +419,7 @@ func (s *Server) parseAuthorizationRequest(r *http.Request) (*storage.AuthReques
 	if err != nil {
 		return nil, newDisplayedErr(http.StatusBadRequest, "No redirect_uri provided.")
 	}
-
+	
 	clientID := q.Get("client_id")
 	state := q.Get("state")
 	nonce := q.Get("nonce")
@@ -427,14 +427,14 @@ func (s *Server) parseAuthorizationRequest(r *http.Request) (*storage.AuthReques
 	// Some clients, like the old go-oidc, provide extra whitespace. Tolerate this.
 	scopes := strings.Fields(q.Get("scope"))
 	responseTypes := strings.Fields(q.Get("response_type"))
-
+	
 	codeChallenge := q.Get("code_challenge")
 	codeChallengeMethod := q.Get("code_challenge_method")
-
+	
 	if codeChallengeMethod == "" {
 		codeChallengeMethod = codeChallengeMethodPlain
 	}
-
+	
 	client, err := s.storage.GetClient(clientID)
 	if err != nil {
 		if err == storage.ErrNotFound {
@@ -443,19 +443,19 @@ func (s *Server) parseAuthorizationRequest(r *http.Request) (*storage.AuthReques
 		s.logger.Errorf("Failed to get client: %v", err)
 		return nil, newDisplayedErr(http.StatusInternalServerError, "Database error.")
 	}
-
+	
 	if !validateRedirectURI(client, redirectURI) {
 		return nil, newDisplayedErr(http.StatusBadRequest, "Unregistered redirect_uri (%q).", redirectURI)
 	}
 	if redirectURI == deviceCallbackURI && client.Public {
 		redirectURI = s.issuerURL.Path + deviceCallbackURI
 	}
-
+	
 	// From here on out, we want to redirect back to the client with an error.
 	newRedirectedErr := func(typ, format string, a ...interface{}) *redirectedAuthErr {
 		return &redirectedAuthErr{state, redirectURI, typ, fmt.Sprintf(format, a...)}
 	}
-
+	
 	if connectorID != "" {
 		connectors, err := s.storage.ListConnectors()
 		if err != nil {
@@ -466,18 +466,18 @@ func (s *Server) parseAuthorizationRequest(r *http.Request) (*storage.AuthReques
 			return nil, newRedirectedErr(errInvalidRequest, "Invalid ConnectorID")
 		}
 	}
-
+	
 	// dex doesn't support request parameter and must return request_not_supported error
 	// https://openid.net/specs/openid-connect-core-1_0.html#6.1
 	if q.Get("request") != "" {
 		return nil, newRedirectedErr(errRequestNotSupported, "Server does not support request parameter.")
 	}
-
+	
 	if codeChallengeMethod != codeChallengeMethodS256 && codeChallengeMethod != codeChallengeMethodPlain {
 		description := fmt.Sprintf("Unsupported PKCE challenge method (%q).", codeChallengeMethod)
 		return nil, newRedirectedErr(errInvalidRequest, description)
 	}
-
+	
 	var (
 		unrecognized  []string
 		invalidScopes []string
@@ -494,7 +494,7 @@ func (s *Server) parseAuthorizationRequest(r *http.Request) (*storage.AuthReques
 				unrecognized = append(unrecognized, scope)
 				continue
 			}
-
+			
 			isTrusted, err := s.validateCrossClientTrust(clientID, peerID)
 			if err != nil {
 				return nil, newRedirectedErr(errServerError, "Internal server error.")
@@ -513,13 +513,13 @@ func (s *Server) parseAuthorizationRequest(r *http.Request) (*storage.AuthReques
 	if len(invalidScopes) > 0 {
 		return nil, newRedirectedErr(errInvalidScope, "Client can't request scope(s) %q", invalidScopes)
 	}
-
+	
 	var rt struct {
 		code    bool
 		idToken bool
 		token   bool
 	}
-
+	
 	for _, responseType := range responseTypes {
 		switch responseType {
 		case responseTypeCode:
@@ -531,16 +531,16 @@ func (s *Server) parseAuthorizationRequest(r *http.Request) (*storage.AuthReques
 		default:
 			return nil, newRedirectedErr(errInvalidRequest, "Invalid response type %q", responseType)
 		}
-
+		
 		if !s.supportedResponseTypes[responseType] {
 			return nil, newRedirectedErr(errUnsupportedResponseType, "Unsupported response type %q", responseType)
 		}
 	}
-
+	
 	if len(responseTypes) == 0 {
 		return nil, newRedirectedErr(errInvalidRequest, "No response_type provided")
 	}
-
+	
 	if rt.token && !rt.code && !rt.idToken {
 		// "token" can't be provided by its own.
 		//
@@ -562,7 +562,7 @@ func (s *Server) parseAuthorizationRequest(r *http.Request) (*storage.AuthReques
 			return nil, newRedirectedErr(errInvalidRequest, err)
 		}
 	}
-
+	
 	return &storage.AuthRequest{
 		ID:                  storage.NewID(),
 		ClientID:            client.ID,
@@ -621,11 +621,11 @@ func validateRedirectURI(client storage.Client, redirectURI string) bool {
 	if !client.Public || len(client.RedirectURIs) > 0 {
 		return false
 	}
-
+	
 	if redirectURI == redirectURIOOB || redirectURI == deviceCallbackURI {
 		return true
 	}
-
+	
 	// verify that the host is of form "http://localhost:(port)(path)" or "http://localhost(path)"
 	u, err := url.Parse(redirectURI)
 	if err != nil {
@@ -660,23 +660,23 @@ func (s *storageKeySet) VerifySignature(_ context.Context, jwt string) (payload 
 	if err != nil {
 		return nil, err
 	}
-
+	
 	keyID := ""
 	for _, sig := range jws.Signatures {
 		keyID = sig.Header.KeyID
 		break
 	}
-
+	
 	skeys, err := s.Storage.GetKeys()
 	if err != nil {
 		return nil, err
 	}
-
+	
 	keys := []*jose.JSONWebKey{skeys.SigningKeyPub}
 	for _, vk := range skeys.VerificationKeys {
 		keys = append(keys, vk.PublicKey)
 	}
-
+	
 	for _, key := range keys {
 		if keyID == "" || key.KeyID == keyID {
 			if payload, err := jws.Verify(key); err == nil {
@@ -684,6 +684,6 @@ func (s *storageKeySet) VerifySignature(_ context.Context, jwt string) (payload 
 			}
 		}
 	}
-
+	
 	return nil, errors.New("failed to verify id token signature")
 }

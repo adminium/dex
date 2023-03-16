@@ -10,8 +10,8 @@ This will make it easier for the community to describe, track, and look through 
 ## Process
 
 ### Before starting
-1. Search GitHub for previous [issues](https://github.com/dexidp/dex/issues), [discussions](https://github.com/dexidp/dex/discussions) and [DEPs](https://github.com/dexidp/dex/tree/master/docs/enhancements).
-2. If a discussion does not exist, [open it](https://github.com/dexidp/dex/discussions/new?category=Ideas).
+1. Search GitHub for previous [issues](https://github.com/adminium/dex/issues), [discussions](https://github.com/adminium/dex/discussions) and [DEPs](https://github.com/adminium/dex/tree/master/docs/enhancements).
+2. If a discussion does not exist, [open it](https://github.com/adminium/dex/discussions/new?category=Ideas).
 3. Ensure that writing enhancement proposal is necessary for you change by discussing it with a community.
 
 ### Writing an enhancement proposal

@@ -3,9 +3,9 @@ package client
 import (
 	"context"
 	"errors"
-
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/ent/db"
+	
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/ent/db"
 )
 
 func getKeys(client *db.KeysClient) (storage.Keys, error) {
@@ -13,7 +13,7 @@ func getKeys(client *db.KeysClient) (storage.Keys, error) {
 	if err != nil {
 		return storage.Keys{}, convertDBError("get keys: %w", err)
 	}
-
+	
 	return toStorageKeys(rawKeys), nil
 }
 
@@ -25,12 +25,12 @@ func (d *Database) GetKeys() (storage.Keys, error) {
 // UpdateKeys rotates keys using updater function.
 func (d *Database) UpdateKeys(updater func(old storage.Keys) (storage.Keys, error)) error {
 	firstUpdate := false
-
+	
 	tx, err := d.BeginTx(context.TODO())
 	if err != nil {
 		return convertDBError("update keys tx: %w", err)
 	}
-
+	
 	storageKeys, err := getKeys(tx.Keys)
 	if err != nil {
 		if !errors.Is(err, storage.ErrNotFound) {
@@ -38,12 +38,12 @@ func (d *Database) UpdateKeys(updater func(old storage.Keys) (storage.Keys, erro
 		}
 		firstUpdate = true
 	}
-
+	
 	newKeys, err := updater(storageKeys)
 	if err != nil {
 		return rollback(tx, "update keys updating: %w", err)
 	}
-
+	
 	// ent doesn't have an upsert support yet
 	// https://github.com/facebook/ent/issues/139
 	if firstUpdate {
@@ -62,7 +62,7 @@ func (d *Database) UpdateKeys(updater func(old storage.Keys) (storage.Keys, erro
 		}
 		return nil
 	}
-
+	
 	err = tx.Keys.UpdateOneID(keysRowID).
 		SetNextRotation(newKeys.NextRotation.UTC()).
 		SetSigningKey(*newKeys.SigningKey).
@@ -72,10 +72,10 @@ func (d *Database) UpdateKeys(updater func(old storage.Keys) (storage.Keys, erro
 	if err != nil {
 		return rollback(tx, "update keys uploading: %w", err)
 	}
-
+	
 	if err = tx.Commit(); err != nil {
 		return rollback(tx, "update keys commit: %w", err)
 	}
-
+	
 	return nil
 }

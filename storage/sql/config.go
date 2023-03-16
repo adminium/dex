@@ -11,12 +11,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
+	
 	"github.com/go-sql-driver/mysql"
 	"github.com/lib/pq"
-
-	"github.com/dexidp/dex/pkg/log"
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/pkg/log"
+	"github.com/adminium/dex/storage"
 )
 
 const (
@@ -56,9 +56,9 @@ type NetworkDB struct {
 	Password string
 	Host     string
 	Port     uint16
-
+	
 	ConnectionTimeout int // Seconds
-
+	
 	// database/sql tunables, see
 	// https://golang.org/pkg/database/sql/#DB.SetConnMaxLifetime and below
 	// Note: defaults will be set if these are 0
@@ -79,7 +79,7 @@ type SSL struct {
 // Postgres options for creating an SQL db.
 type Postgres struct {
 	NetworkDB
-
+	
 	SSL SSL `json:"ssl" yaml:"ssl"`
 }
 
@@ -103,92 +103,92 @@ func dataSourceStr(str string) string {
 // make use of.
 func (p *Postgres) createDataSourceName() string {
 	parameters := []string{}
-
+	
 	addParam := func(key, val string) {
 		parameters = append(parameters, fmt.Sprintf("%s=%s", key, val))
 	}
-
+	
 	addParam("connect_timeout", strconv.Itoa(p.ConnectionTimeout))
-
+	
 	// detect host:port for backwards-compatibility
 	host, port, err := net.SplitHostPort(p.Host)
 	if err != nil {
 		// not host:port, probably unix socket or bare address
-
+		
 		host = p.Host
-
+		
 		if p.Port != 0 {
 			port = strconv.Itoa(int(p.Port))
 		}
 	}
-
+	
 	if host != "" {
 		addParam("host", dataSourceStr(host))
 	}
-
+	
 	if port != "" {
 		addParam("port", port)
 	}
-
+	
 	if p.User != "" {
 		addParam("user", dataSourceStr(p.User))
 	}
-
+	
 	if p.Password != "" {
 		addParam("password", dataSourceStr(p.Password))
 	}
-
+	
 	if p.Database != "" {
 		addParam("dbname", dataSourceStr(p.Database))
 	}
-
+	
 	if p.SSL.Mode == "" {
 		// Assume the strictest mode if unspecified.
 		addParam("sslmode", dataSourceStr(pgSSLVerifyFull))
 	} else {
 		addParam("sslmode", dataSourceStr(p.SSL.Mode))
 	}
-
+	
 	if p.SSL.CAFile != "" {
 		addParam("sslrootcert", dataSourceStr(p.SSL.CAFile))
 	}
-
+	
 	if p.SSL.CertFile != "" {
 		addParam("sslcert", dataSourceStr(p.SSL.CertFile))
 	}
-
+	
 	if p.SSL.KeyFile != "" {
 		addParam("sslkey", dataSourceStr(p.SSL.KeyFile))
 	}
-
+	
 	return strings.Join(parameters, " ")
 }
 
 func (p *Postgres) open(logger log.Logger) (*conn, error) {
 	dataSourceName := p.createDataSourceName()
-
+	
 	db, err := sql.Open("postgres", dataSourceName)
 	if err != nil {
 		return nil, err
 	}
-
+	
 	// set database/sql tunables if configured
 	if p.ConnMaxLifetime != 0 {
 		db.SetConnMaxLifetime(time.Duration(p.ConnMaxLifetime) * time.Second)
 	}
-
+	
 	if p.MaxIdleConns == 0 {
 		db.SetMaxIdleConns(5)
 	} else {
 		db.SetMaxIdleConns(p.MaxIdleConns)
 	}
-
+	
 	if p.MaxOpenConns == 0 {
 		db.SetMaxOpenConns(5)
 	} else {
 		db.SetMaxOpenConns(p.MaxOpenConns)
 	}
-
+	
 	errCheck := func(err error) bool {
 		sqlErr, ok := err.(*pq.Error)
 		if !ok {
@@ -196,7 +196,7 @@ func (p *Postgres) open(logger log.Logger) (*conn, error) {
 		}
 		return sqlErr.Code == pgErrUniqueViolation
 	}
-
+	
 	c := &conn{db, &flavorPostgres, logger, errCheck}
 	if _, err := c.migrate(); err != nil {
 		return nil, fmt.Errorf("failed to perform migrations: %v", err)
@@ -207,9 +207,9 @@ func (p *Postgres) open(logger log.Logger) (*conn, error) {
 // MySQL options for creating a MySQL db.
 type MySQL struct {
 	NetworkDB
-
+	
 	SSL SSL `json:"ssl" yaml:"ssl"`
-
+	
 	// TODO(pborzenkov): used by tests to reduce lock wait timeout. Should
 	// we make it exported and allow users to provide arbitrary params?
 	params map[string]string
@@ -230,9 +230,9 @@ func (s *MySQL) open(logger log.Logger) (*conn, error) {
 		Passwd:               s.Password,
 		DBName:               s.Database,
 		AllowNativePasswords: true,
-
+		
 		Timeout: time.Second * time.Duration(s.ConnectionTimeout),
-
+		
 		ParseTime: true,
 		Params: map[string]string{
 			"transaction_isolation": "'SERIALIZABLE'",
@@ -242,7 +242,7 @@ func (s *MySQL) open(logger log.Logger) (*conn, error) {
 		if s.Host[0] != '/' {
 			cfg.Net = "tcp"
 			cfg.Addr = s.Host
-
+			
 			if s.Port != 0 {
 				cfg.Addr = net.JoinHostPort(s.Host, strconv.Itoa(int(s.Port)))
 			}
@@ -251,7 +251,7 @@ func (s *MySQL) open(logger log.Logger) (*conn, error) {
 			cfg.Addr = s.Host
 		}
 	}
-
+	
 	switch {
 	case s.SSL.CAFile != "" || s.SSL.CertFile != "" || s.SSL.KeyFile != "":
 		if err := s.makeTLSConfig(); err != nil {
@@ -263,34 +263,34 @@ func (s *MySQL) open(logger log.Logger) (*conn, error) {
 	default:
 		cfg.TLSConfig = s.SSL.Mode
 	}
-
+	
 	for k, v := range s.params {
 		cfg.Params[k] = v
 	}
-
+	
 	db, err := sql.Open("mysql", cfg.FormatDSN())
 	if err != nil {
 		return nil, err
 	}
-
+	
 	if s.MaxIdleConns == 0 {
-		/*Override default behaviour to fix https://github.com/dexidp/dex/issues/1608*/
+		/*Override default behaviour to fix https://github.com/adminium/dex/issues/1608*/
 		db.SetMaxIdleConns(0)
 	} else {
 		db.SetMaxIdleConns(s.MaxIdleConns)
 	}
-
+	
 	err = db.Ping()
 	if err != nil {
 		if mysqlErr, ok := err.(*mysql.MySQLError); ok && mysqlErr.Number == mysqlErrUnknownSysVar {
 			logger.Info("reconnecting with MySQL pre-5.7.20 compatibility mode")
-
+			
 			// MySQL 5.7.20 introduced transaction_isolation and deprecated tx_isolation.
 			// MySQL 8.0 doesn't have tx_isolation at all.
 			// https://dev.mysql.com/doc/refman/5.7/en/server-system-variables.html#sysvar_transaction_isolation
 			delete(cfg.Params, "transaction_isolation")
 			cfg.Params["tx_isolation"] = "'SERIALIZABLE'"
-
+			
 			db, err = sql.Open("mysql", cfg.FormatDSN())
 			if err != nil {
 				return nil, err
@@ -299,7 +299,7 @@ func (s *MySQL) open(logger log.Logger) (*conn, error) {
 			return nil, err
 		}
 	}
-
+	
 	errCheck := func(err error) bool {
 		sqlErr, ok := err.(*mysql.MySQLError)
 		if !ok {
@@ -308,7 +308,7 @@ func (s *MySQL) open(logger log.Logger) (*conn, error) {
 		return sqlErr.Number == mysqlErrDupEntry ||
 			sqlErr.Number == mysqlErrDupEntryWithKeyName
 	}
-
+	
 	c := &conn{db, &flavorMySQL, logger, errCheck}
 	if _, err := c.migrate(); err != nil {
 		return nil, fmt.Errorf("failed to perform migrations: %v", err)
@@ -338,7 +338,7 @@ func (s *MySQL) makeTLSConfig() error {
 		clientCert = append(clientCert, certs)
 		cfg.Certificates = clientCert
 	}
-
+	
 	mysql.RegisterTLSConfig(mysqlSSLCustom, cfg)
 	return nil
 }

@@ -3,11 +3,11 @@ package memory
 import (
 	"os"
 	"testing"
-
+	
 	"github.com/sirupsen/logrus"
-
-	"github.com/dexidp/dex/storage"
-	"github.com/dexidp/dex/storage/conformance"
+	
+	"github.com/adminium/dex/storage"
+	"github.com/adminium/dex/storage/conformance"
 )
 
 func TestStorage(t *testing.T) {
@@ -16,7 +16,7 @@ func TestStorage(t *testing.T) {
 		Formatter: &logrus.TextFormatter{DisableColors: true},
 		Level:     logrus.DebugLevel,
 	}
-
+	
 	newStorage := func() storage.Storage {
 		return New(logger)
 	}

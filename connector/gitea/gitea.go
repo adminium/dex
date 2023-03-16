@@ -11,11 +11,11 @@ import (
 	"strconv"
 	"sync"
 	"time"
-
+	
 	"golang.org/x/oauth2"
-
-	"github.com/dexidp/dex/connector"
-	"github.com/dexidp/dex/pkg/log"
+	
+	"github.com/adminium/dex/connector"
+	"github.com/adminium/dex/pkg/log"
 )
 
 // Config holds configuration options for gitea logins.
@@ -34,7 +34,7 @@ type Org struct {
 	// Organization name in gitea (not slug, full name). Only users in this gitea
 	// organization can authenticate.
 	Name string `json:"name"`
-
+	
 	// Names of teams in a gitea organization. A user will be able to
 	// authenticate if they are members of at least one of these teams. Users
 	// in the organization can authenticate if this field is omitted from the
@@ -126,31 +126,31 @@ func (c *giteaConnector) HandleCallback(s connector.Scopes, r *http.Request) (id
 	if errType := q.Get("error"); errType != "" {
 		return identity, &oauth2Error{errType, q.Get("error_description")}
 	}
-
+	
 	oauth2Config := c.oauth2Config(s)
-
+	
 	ctx := r.Context()
 	if c.httpClient != nil {
 		ctx = context.WithValue(r.Context(), oauth2.HTTPClient, c.httpClient)
 	}
-
+	
 	token, err := oauth2Config.Exchange(ctx, q.Get("code"))
 	if err != nil {
 		return identity, fmt.Errorf("gitea: failed to get token: %v", err)
 	}
-
+	
 	client := oauth2Config.Client(ctx, token)
-
+	
 	user, err := c.user(ctx, client)
 	if err != nil {
 		return identity, fmt.Errorf("gitea: get user: %v", err)
 	}
-
+	
 	username := user.Name
 	if username == "" {
 		username = user.Email
 	}
-
+	
 	identity = connector.Identity{
 		UserID:            strconv.Itoa(user.ID),
 		Username:          username,
@@ -161,7 +161,7 @@ func (c *giteaConnector) HandleCallback(s connector.Scopes, r *http.Request) (id
 	if c.useLoginAsID {
 		identity.UserID = user.Username
 	}
-
+	
 	// Only set identity.Groups if 'orgs', 'org', or 'groups' scope are specified.
 	if c.groupsRequired() {
 		groups, err := c.getGroups(ctx, client)
@@ -170,7 +170,7 @@ func (c *giteaConnector) HandleCallback(s connector.Scopes, r *http.Request) (id
 		}
 		identity.Groups = groups
 	}
-
+	
 	if s.OfflineAccess {
 		data := connectorData{
 			AccessToken:  token.AccessToken,
@@ -183,7 +183,7 @@ func (c *giteaConnector) HandleCallback(s connector.Scopes, r *http.Request) (id
 		}
 		identity.ConnectorData = connData
 	}
-
+	
 	return identity, nil
 }
 
@@ -220,18 +220,18 @@ func (c *giteaConnector) Refresh(ctx context.Context, s connector.Scopes, ident 
 	if len(ident.ConnectorData) == 0 {
 		return ident, errors.New("gitea: no upstream access token found")
 	}
-
+	
 	var data connectorData
 	if err := json.Unmarshal(ident.ConnectorData, &data); err != nil {
 		return ident, fmt.Errorf("gitea: unmarshal access token: %v", err)
 	}
-
+	
 	tok := &oauth2.Token{
 		AccessToken:  data.AccessToken,
 		RefreshToken: data.RefreshToken,
 		Expiry:       data.Expiry,
 	}
-
+	
 	client := oauth2.NewClient(ctx, &notifyRefreshTokenSource{
 		new: c.oauth2Config(s).TokenSource(ctx, tok),
 		t:   tok,
@@ -253,7 +253,7 @@ func (c *giteaConnector) Refresh(ctx context.Context, s connector.Scopes, ident 
 	if err != nil {
 		return ident, fmt.Errorf("gitea: get user: %v", err)
 	}
-
+	
 	username := user.Name
 	if username == "" {
 		username = user.Email
@@ -261,7 +261,7 @@ func (c *giteaConnector) Refresh(ctx context.Context, s connector.Scopes, ident 
 	ident.Username = username
 	ident.PreferredUsername = user.Username
 	ident.Email = user.Email
-
+	
 	// Only set identity.Groups if 'orgs', 'org', or 'groups' scope are specified.
 	if c.groupsRequired() {
 		groups, err := c.getGroups(ctx, client)
@@ -270,7 +270,7 @@ func (c *giteaConnector) Refresh(ctx context.Context, s connector.Scopes, ident 
 		}
 		ident.Groups = groups
 	}
-
+	
 	return ident, nil
 }
 
@@ -296,7 +296,7 @@ func (c *giteaConnector) groupsForOrgs(ctx context.Context, client *http.Client)
 	if err != nil {
 		return groups, err
 	}
-
+	
 	keys := make(map[string]bool)
 	for _, o := range c.orgs {
 		keys[o.Name] = true
@@ -314,7 +314,7 @@ func (c *giteaConnector) groupsForOrgs(ctx context.Context, client *http.Client)
 			atLeastOne = true
 		}
 	}
-
+	
 	if !atLeastOne {
 		return []string{}, fmt.Errorf("gitea: User does not belong to any of the approved groups")
 	}
@@ -343,14 +343,14 @@ func (c *giteaConnector) userGroups(ctx context.Context, client *http.Client) ([
 		if err != nil {
 			return groups, fmt.Errorf("gitea: new req: %v", err)
 		}
-
+		
 		req = req.WithContext(ctx)
 		resp, err := client.Do(req)
 		if err != nil {
 			return groups, fmt.Errorf("gitea: get URL %v", err)
 		}
 		defer resp.Body.Close()
-
+		
 		if resp.StatusCode != http.StatusOK {
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
@@ -358,23 +358,23 @@ func (c *giteaConnector) userGroups(ctx context.Context, client *http.Client) ([
 			}
 			return groups, fmt.Errorf("%s: %s", resp.Status, body)
 		}
-
+		
 		if err := json.NewDecoder(resp.Body).Decode(&teams); err != nil {
 			return groups, fmt.Errorf("failed to decode response: %v", err)
 		}
-
+		
 		if len(teams) == 0 {
 			break
 		}
-
+		
 		for _, t := range teams {
 			groups = append(groups, t.Organization.Name)
 			groups = append(groups, formatTeamName(t.Organization.Name, t.Name))
 		}
-
+		
 		page++
 	}
-
+	
 	// remove duplicate slice variables
 	keys := make(map[string]struct{})
 	list := []string{}
@@ -403,7 +403,7 @@ func (c *giteaConnector) user(ctx context.Context, client *http.Client) (giteaUs
 		return u, fmt.Errorf("gitea: get URL %v", err)
 	}
 	defer resp.Body.Close()
-
+	
 	if resp.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -411,7 +411,7 @@ func (c *giteaConnector) user(ctx context.Context, client *http.Client) (giteaUs
 		}
 		return u, fmt.Errorf("%s: %s", resp.Status, body)
 	}
-
+	
 	if err := json.NewDecoder(resp.Body).Decode(&u); err != nil {
 		return u, fmt.Errorf("failed to decode response: %v", err)
 	}

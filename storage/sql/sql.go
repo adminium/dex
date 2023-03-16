@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"regexp"
 	"time"
-
+	
 	// import third party drivers
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
-
-	"github.com/dexidp/dex/pkg/log"
+	
+	"github.com/adminium/dex/pkg/log"
 )
 
 // flavor represents a specific SQL implementation, and is used to translate query strings
@@ -18,10 +18,10 @@ import (
 // only the specific queries used by the SQL storages.
 type flavor struct {
 	queryReplacers []replacer
-
+	
 	// Optional function to create and finish a transaction.
 	executeTx func(db *sql.DB, fn func(*sql.Tx) error) error
-
+	
 	// Does the flavor support timezones?
 	supportsTimezones bool
 }
@@ -56,7 +56,7 @@ var (
 				return err
 			}
 			defer tx.Rollback()
-
+			
 			if _, err := tx.Exec(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;`); err != nil {
 				return err
 			}
@@ -65,10 +65,10 @@ var (
 			}
 			return tx.Commit()
 		},
-
+		
 		supportsTimezones: true,
 	}
-
+	
 	flavorSQLite3 = flavor{
 		queryReplacers: []replacer{
 			{bindRegexp, "?"},
@@ -83,7 +83,7 @@ var (
 			{regexp.MustCompile(`\bnow\(\)`), "date('now')"},
 		},
 	}
-
+	
 	flavorMySQL = flavor{
 		queryReplacers: []replacer{
 			{bindRegexp, "?"},
@@ -118,7 +118,7 @@ func (c *conn) translateArgs(args []interface{}) []interface{} {
 	if c.flavor.supportsTimezones {
 		return args
 	}
-
+	
 	for i, arg := range args {
 		if t, ok := arg.(time.Time); ok {
 			args[i] = t.UTC()
@@ -163,7 +163,7 @@ func (c *conn) ExecTx(fn func(tx *trans) error) error {
 			return fn(&trans{sqlTx, c})
 		})
 	}
-
+	
 	sqlTx, err := c.db.Begin()
 	if err != nil {
 		return err

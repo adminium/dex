@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-
-	"github.com/dexidp/dex/connector"
-	"github.com/dexidp/dex/pkg/log"
+	
+	"github.com/adminium/dex/connector"
+	"github.com/adminium/dex/pkg/log"
 )
 
 // Config holds the configuration parameters for a connector which returns an
@@ -34,7 +34,7 @@ func (c *Config) Open(id string, logger log.Logger) (connector.Connector, error)
 	if groupHeader == "" {
 		groupHeader = "X-Remote-Group"
 	}
-
+	
 	return &callback{userHeader: userHeader, groupHeader: groupHeader, logger: logger, pathSuffix: "/" + id, groups: c.Groups}, nil
 }
 

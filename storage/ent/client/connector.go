@@ -2,8 +2,8 @@ package client
 
 import (
 	"context"
-
-	"github.com/dexidp/dex/storage"
+	
+	"github.com/adminium/dex/storage"
 )
 
 // CreateConnector saves a connector into the database.
@@ -27,7 +27,7 @@ func (d *Database) ListConnectors() ([]storage.Connector, error) {
 	if err != nil {
 		return nil, convertDBError("list connectors: %w", err)
 	}
-
+	
 	storageConnectors := make([]storage.Connector, 0, len(connectors))
 	for _, c := range connectors {
 		storageConnectors = append(storageConnectors, toStorageConnector(c))
@@ -59,17 +59,17 @@ func (d *Database) UpdateConnector(id string, updater func(old storage.Connector
 	if err != nil {
 		return convertDBError("update connector tx: %w", err)
 	}
-
+	
 	connector, err := tx.Connector.Get(context.TODO(), id)
 	if err != nil {
 		return rollback(tx, "update connector database: %w", err)
 	}
-
+	
 	newConnector, err := updater(toStorageConnector(connector))
 	if err != nil {
 		return rollback(tx, "update connector updating: %w", err)
 	}
-
+	
 	_, err = tx.Connector.UpdateOneID(newConnector.ID).
 		SetName(newConnector.Name).
 		SetType(newConnector.Type).
@@ -79,10 +79,10 @@ func (d *Database) UpdateConnector(id string, updater func(old storage.Connector
 	if err != nil {
 		return rollback(tx, "update connector uploading: %w", err)
 	}
-
+	
 	if err = tx.Commit(); err != nil {
 		return rollback(tx, "update connector commit: %w", err)
 	}
-
+	
 	return nil
 }

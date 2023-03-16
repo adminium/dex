@@ -1,15 +1,15 @@
-module github.com/dexidp/dex
+module github.com/adminium/dex
 
-go 1.20
+go 1.18
 
 require (
 	entgo.io/ent v0.11.9
 	github.com/AppsFlyer/go-sundheit v0.5.0
 	github.com/Masterminds/semver v1.5.0
 	github.com/Masterminds/sprig/v3 v3.2.3
+	github.com/adminium/dex/api/v2 v2.1.0
 	github.com/beevik/etree v1.1.0
 	github.com/coreos/go-oidc/v3 v3.5.0
-	github.com/dexidp/dex/api/v2 v2.1.0
 	github.com/felixge/httpsnoop v1.0.3
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-ldap/ldap/v3 v3.4.4
@@ -95,4 +95,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/dexidp/dex/api/v2 => ./api/v2
+replace github.com/adminium/dex/api/v2 => ./api/v2

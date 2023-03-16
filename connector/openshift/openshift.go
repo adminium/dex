@@ -7,14 +7,14 @@ import (
 	"io"
 	"net/http"
 	"strings"
-
+	
 	"golang.org/x/oauth2"
-
-	"github.com/dexidp/dex/connector"
-	"github.com/dexidp/dex/pkg/groups"
-	"github.com/dexidp/dex/pkg/httpclient"
-	"github.com/dexidp/dex/pkg/log"
-	"github.com/dexidp/dex/storage/kubernetes/k8sapi"
+	
+	"github.com/adminium/dex/connector"
+	"github.com/adminium/dex/pkg/groups"
+	"github.com/adminium/dex/pkg/httpclient"
+	"github.com/adminium/dex/pkg/log"
+	"github.com/adminium/dex/storage/kubernetes/k8sapi"
 )
 
 const (
@@ -67,12 +67,12 @@ func (c *Config) Open(id string, logger log.Logger) (conn connector.Connector, e
 	if c.RootCA != "" {
 		rootCAs = append(rootCAs, c.RootCA)
 	}
-
+	
 	httpClient, err := httpclient.NewHTTPClient(rootCAs, c.InsecureCA)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP client: %w", err)
 	}
-
+	
 	return c.OpenWithHTTPClient(id, logger, httpClient)
 }
 
@@ -83,13 +83,13 @@ func (c *Config) OpenWithHTTPClient(id string, logger log.Logger,
 ) (conn connector.Connector, err error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
+	
 	wellKnownURL := strings.TrimSuffix(c.Issuer, "/") + wellKnownURLPath
 	req, err := http.NewRequest(http.MethodGet, wellKnownURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a request to OpenShift endpoint %w", err)
 	}
-
+	
 	openshiftConnector := openshiftConnector{
 		apiURL:       c.Issuer,
 		cancel:       cancel,
@@ -102,24 +102,24 @@ func (c *Config) OpenWithHTTPClient(id string, logger log.Logger,
 		groups:       c.Groups,
 		httpClient:   httpClient,
 	}
-
+	
 	var metadata struct {
 		Auth  string `json:"authorization_endpoint"`
 		Token string `json:"token_endpoint"`
 	}
-
+	
 	resp, err := openshiftConnector.httpClient.Do(req.WithContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to query OpenShift endpoint %w", err)
 	}
-
+	
 	defer resp.Body.Close()
-
+	
 	if err := json.NewDecoder(resp.Body).Decode(&metadata); err != nil {
 		return nil, fmt.Errorf("discovery through endpoint %s failed to decode body: %w",
 			wellKnownURL, err)
 	}
-
+	
 	openshiftConnector.oauth2Config = &oauth2.Config{
 		ClientID:     c.ClientID,
 		ClientSecret: c.ClientSecret,
@@ -166,17 +166,17 @@ func (c *openshiftConnector) HandleCallback(s connector.Scopes,
 	if errType := q.Get("error"); errType != "" {
 		return identity, &oauth2Error{errType, q.Get("error_description")}
 	}
-
+	
 	ctx := r.Context()
 	if c.httpClient != nil {
 		ctx = context.WithValue(r.Context(), oauth2.HTTPClient, c.httpClient)
 	}
-
+	
 	token, err := c.oauth2Config.Exchange(ctx, q.Get("code"))
 	if err != nil {
 		return identity, fmt.Errorf("oidc: failed to get token: %v", err)
 	}
-
+	
 	return c.identity(ctx, s, token)
 }
 
@@ -202,15 +202,15 @@ func (c *openshiftConnector) identity(ctx context.Context, s connector.Scopes,
 	if err != nil {
 		return identity, fmt.Errorf("openshift: get user: %v", err)
 	}
-
+	
 	if len(c.groups) > 0 {
 		validGroups := validateAllowedGroups(user.Groups, c.groups)
-
+		
 		if !validGroups {
 			return identity, fmt.Errorf("openshift: user %q is not in any of the required groups", user.Name)
 		}
 	}
-
+	
 	identity = connector.Identity{
 		UserID:            user.UID,
 		Username:          user.Name,
@@ -218,7 +218,7 @@ func (c *openshiftConnector) identity(ctx context.Context, s connector.Scopes,
 		Email:             user.Name,
 		Groups:            user.Groups,
 	}
-
+	
 	if s.OfflineAccess {
 		connData, err := json.Marshal(token)
 		if err != nil {
@@ -226,25 +226,25 @@ func (c *openshiftConnector) identity(ctx context.Context, s connector.Scopes,
 		}
 		identity.ConnectorData = connData
 	}
-
+	
 	return identity, nil
 }
 
 // user function returns the OpenShift user associated with the authenticated user
 func (c *openshiftConnector) user(ctx context.Context, client *http.Client) (u user, err error) {
 	url := c.apiURL + usersURLPath
-
+	
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return u, fmt.Errorf("new req: %v", err)
 	}
-
+	
 	resp, err := client.Do(req.WithContext(ctx))
 	if err != nil {
 		return u, fmt.Errorf("get URL %v", err)
 	}
 	defer resp.Body.Close()
-
+	
 	if resp.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -252,16 +252,16 @@ func (c *openshiftConnector) user(ctx context.Context, client *http.Client) (u u
 		}
 		return u, fmt.Errorf("%s: %s", resp.Status, body)
 	}
-
+	
 	if err := json.NewDecoder(resp.Body).Decode(&u); err != nil {
 		return u, fmt.Errorf("JSON decode: %v", err)
 	}
-
+	
 	return u, err
 }
 
 func validateAllowedGroups(userGroups, allowedGroups []string) bool {
 	matchingGroups := groups.Filter(userGroups, allowedGroups)
-
+	
 	return len(matchingGroups) != 0
 }

@@ -8,17 +8,17 @@ import (
 	"net/http"
 	"os"
 	"time"
-
+	
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/exp/slices"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	admin "google.golang.org/api/admin/directory/v1"
 	"google.golang.org/api/option"
-
-	"github.com/dexidp/dex/connector"
-	pkg_groups "github.com/dexidp/dex/pkg/groups"
-	"github.com/dexidp/dex/pkg/log"
+	
+	"github.com/adminium/dex/connector"
+	pkg_groups "github.com/adminium/dex/pkg/groups"
+	"github.com/adminium/dex/pkg/log"
 )
 
 const (
@@ -30,27 +30,27 @@ type Config struct {
 	ClientID     string `json:"clientID"`
 	ClientSecret string `json:"clientSecret"`
 	RedirectURI  string `json:"redirectURI"`
-
+	
 	Scopes []string `json:"scopes"` // defaults to "profile" and "email"
-
+	
 	// Optional list of whitelisted domains
 	// If this field is nonempty, only users from a listed domain will be allowed to log in
 	HostedDomains []string `json:"hostedDomains"`
-
+	
 	// Optional list of whitelisted groups
 	// If this field is nonempty, only users from a listed group will be allowed to log in
 	Groups []string `json:"groups"`
-
+	
 	// Optional path to service account json
 	// If nonempty, and groups claim is made, will use authentication from file to
 	// check groups with the admin directory api
 	ServiceAccountFilePath string `json:"serviceAccountFilePath"`
-
+	
 	// Required if ServiceAccountFilePath
 	// The email of a GSuite super user which the service account will impersonate
 	// when listing groups
 	AdminEmail string
-
+	
 	// If this field is true, fetch direct group membership and transitive group membership
 	FetchTransitiveGroupMembership bool `json:"fetchTransitiveGroupMembership"`
 }
@@ -58,33 +58,33 @@ type Config struct {
 // Open returns a connector which can be used to login users through Google.
 func (c *Config) Open(id string, logger log.Logger) (conn connector.Connector, err error) {
 	ctx, cancel := context.WithCancel(context.Background())
-
+	
 	provider, err := oidc.NewProvider(ctx, issuerURL)
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to get provider: %v", err)
 	}
-
+	
 	scopes := []string{oidc.ScopeOpenID}
 	if len(c.Scopes) > 0 {
 		scopes = append(scopes, c.Scopes...)
 	} else {
 		scopes = append(scopes, "profile", "email")
 	}
-
+	
 	var adminSrv *admin.Service
-
-	// Fixing a regression caused by default config fallback: https://github.com/dexidp/dex/issues/2699
+	
+	// Fixing a regression caused by default config fallback: https://github.com/adminium/dex/issues/2699
 	if (c.ServiceAccountFilePath != "" && c.AdminEmail != "") || slices.Contains(scopes, "groups") {
 		srv, err := createDirectoryService(c.ServiceAccountFilePath, c.AdminEmail, logger)
 		if err != nil {
 			cancel()
 			return nil, fmt.Errorf("could not create directory service: %v", err)
 		}
-
+		
 		adminSrv = srv
 	}
-
+	
 	clientID := c.ClientID
 	return &googleConnector{
 		redirectURI: c.RedirectURI,
@@ -137,7 +137,7 @@ func (c *googleConnector) LoginURL(s connector.Scopes, callbackURL, state string
 	if c.redirectURI != callbackURL {
 		return "", fmt.Errorf("expected callback URL %q did not match the URL in the config %q", callbackURL, c.redirectURI)
 	}
-
+	
 	var opts []oauth2.AuthCodeOption
 	if len(c.hostedDomains) > 0 {
 		preferredDomain := c.hostedDomains[0]
@@ -146,7 +146,7 @@ func (c *googleConnector) LoginURL(s connector.Scopes, callbackURL, state string
 		}
 		opts = append(opts, oauth2.SetAuthURLParam("hd", preferredDomain))
 	}
-
+	
 	if s.OfflineAccess {
 		opts = append(opts, oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "consent"))
 	}
@@ -174,7 +174,7 @@ func (c *googleConnector) HandleCallback(s connector.Scopes, r *http.Request) (i
 	if err != nil {
 		return identity, fmt.Errorf("google: failed to get token: %v", err)
 	}
-
+	
 	return c.createIdentity(r.Context(), identity, s, token)
 }
 
@@ -187,7 +187,7 @@ func (c *googleConnector) Refresh(ctx context.Context, s connector.Scopes, ident
 	if err != nil {
 		return identity, fmt.Errorf("google: failed to get token: %v", err)
 	}
-
+	
 	return c.createIdentity(ctx, identity, s, token)
 }
 
@@ -200,7 +200,7 @@ func (c *googleConnector) createIdentity(ctx context.Context, identity connector
 	if err != nil {
 		return identity, fmt.Errorf("google: failed to verify ID Token: %v", err)
 	}
-
+	
 	var claims struct {
 		Username      string `json:"name"`
 		Email         string `json:"email"`
@@ -210,7 +210,7 @@ func (c *googleConnector) createIdentity(ctx context.Context, identity connector
 	if err := idToken.Claims(&claims); err != nil {
 		return identity, fmt.Errorf("oidc: failed to decode claims: %v", err)
 	}
-
+	
 	if len(c.hostedDomains) > 0 {
 		found := false
 		for _, domain := range c.hostedDomains {
@@ -219,12 +219,12 @@ func (c *googleConnector) createIdentity(ctx context.Context, identity connector
 				break
 			}
 		}
-
+		
 		if !found {
 			return identity, fmt.Errorf("oidc: unexpected hd claim %v", claims.HostedDomain)
 		}
 	}
-
+	
 	var groups []string
 	if s.Groups && c.adminSrv != nil {
 		checkedGroups := make(map[string]struct{})
@@ -232,7 +232,7 @@ func (c *googleConnector) createIdentity(ctx context.Context, identity connector
 		if err != nil {
 			return identity, fmt.Errorf("google: could not retrieve groups: %v", err)
 		}
-
+		
 		if len(c.groups) > 0 {
 			groups = pkg_groups.Filter(groups, c.groups)
 			if len(groups) == 0 {
@@ -240,7 +240,7 @@ func (c *googleConnector) createIdentity(ctx context.Context, identity connector
 			}
 		}
 	}
-
+	
 	identity = connector.Identity{
 		UserID:        idToken.Subject,
 		Username:      claims.Username,
@@ -264,34 +264,34 @@ func (c *googleConnector) getGroups(email string, fetchTransitiveGroupMembership
 		if err != nil {
 			return nil, fmt.Errorf("could not list groups: %v", err)
 		}
-
+		
 		for _, group := range groupsList.Groups {
 			if _, exists := checkedGroups[group.Email]; exists {
 				continue
 			}
-
+			
 			checkedGroups[group.Email] = struct{}{}
 			// TODO (joelspeed): Make desired group key configurable
 			userGroups = append(userGroups, group.Email)
-
+			
 			if !fetchTransitiveGroupMembership {
 				continue
 			}
-
+			
 			// getGroups takes a user's email/alias as well as a group's email/alias
 			transitiveGroups, err := c.getGroups(group.Email, fetchTransitiveGroupMembership, checkedGroups)
 			if err != nil {
 				return nil, fmt.Errorf("could not list transitive groups: %v", err)
 			}
-
+			
 			userGroups = append(userGroups, transitiveGroups...)
 		}
-
+		
 		if groupsList.NextPageToken == "" {
 			break
 		}
 	}
-
+	
 	return userGroups, nil
 }
 
@@ -304,10 +304,10 @@ func createDirectoryService(serviceAccountFilePath, email string, logger log.Log
 	if email == "" && serviceAccountFilePath != "" {
 		return nil, fmt.Errorf("directory service requires adminEmail")
 	}
-
+	
 	var jsonCredentials []byte
 	var err error
-
+	
 	ctx := context.Background()
 	if serviceAccountFilePath == "" {
 		logger.Warn("the application default credential is used since the service account file path is not used")
@@ -326,11 +326,11 @@ func createDirectoryService(serviceAccountFilePath, email string, logger log.Log
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse client secret file to config: %v", err)
 	}
-
+	
 	// Only attempt impersonation when there is a user configured
 	if email != "" {
 		config.Subject = email
 	}
-
+	
 	return admin.NewService(ctx, option.WithHTTPClient(config.Client(ctx)))
 }
